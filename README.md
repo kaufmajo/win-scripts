@@ -15,7 +15,7 @@
 :echo stdpath("config")
 ```
 
-![Neovim config path!](/assets/neovim_config_path.png "Neovim config path")
+![Neovim config path!](/assets/neovim_config-path.png "Neovim config path")
 
 ### Install C Compiler for plugins, i.e. treesitter
 
