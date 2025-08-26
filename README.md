@@ -15,7 +15,7 @@
 :echo stdpath("config")
 ```
 
-![Neovim config path!](/assets/m3/neovim_config_path.png "Neovim config path")
+![Neovim config path!](/assets/neovim_config_path.png "Neovim config path")
 
 ### Install C Compiler for plugins, i.e. treesitter
 
@@ -63,9 +63,9 @@ This will create a self signed cert and attempt to add it to the Trusted Root Ce
 
 ##### Step 1 - Export Cert from browser
 
-![alt text](assets/m4/browser-cert.png)
+![alt text](assets/visual_studio_browser-cert.png)
 
-![alt text](assets/m4/browser-cert-export.png)
+![alt text](assets/visual_studio_browser-cert-export.png)
 
 ##### Step 2 - Import
 
