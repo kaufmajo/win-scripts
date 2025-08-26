@@ -16,7 +16,7 @@ Write-Host "|               Network forwarding script       |            " -Fore
 Write-Host "|               Version 2.0                     |            " -ForegroundColor Cyan
 Write-Host "|                                               |            " -ForegroundColor Cyan
 Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
-Write-Host ""
+Write-Host
 
 #---------------------------------------------------------------
 # Config

@@ -16,34 +16,42 @@
 #---------------------------------------------------------------
 # Header
 
-Write-Host "`n"
+Write-Host ">>> Script started at $(Get-Date) <<<"
+Write-Host
 Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
 Write-Host "|                                               |            " -ForegroundColor Cyan
 Write-Host "|               Setup Ssh access script         |            " -ForegroundColor Cyan
-Write-Host "|               Version 1.0                     |            " -ForegroundColor Cyan
+Write-Host "|               Version 2.0                     |            " -ForegroundColor Cyan
 Write-Host "|                                               |            " -ForegroundColor Cyan
 Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
-Write-Host ""
+Write-Host
 
-#--------------------------------------------------------------------------
-# Init
+#---------------------------------------------------------------
+# Config
 
-$hosts = [ordered]@{
-    debian_01___hyperv = 'user1@10.99.99.20'
-    debian_02___hyperv = 'user1@10.99.99.30'
-    debian_04___hyperv = 'user1@10.99.99.40'
-}
+# Get current working directory
+$baseDirectory = split-path $MyInvocation.MyCommand.Path
+
+# Get config values
+[xml]$sshsetupConfig = Get-Content ($baseDirectory + "/config/sshsetup.xml")
+
+# Dot Source required Function Libraries
+. "$($env:USERPROFILE)\Joachim\Devpool\Skripte\library\function\Function_Get-XmlNode.ps1"
 
 #--------------------------------------------------------------------------
 # Process
 
-foreach ($h in $hosts.GetEnumerator() ) {
+foreach ($prop in $sshsetupConfig.settings.access.job) {
     
-    $answer = Read-Host "Are you sure you want to proceed [y/n] -> Setup ssh access for '$($h.Value)/$($h.Name)'"
+    if ([bool]::Parse($prop.done) -eq $true) {
+        continue
+    }
 
-    if ($answer -eq 'y') {
+    $answer = Read-Host "Are you sure you want to proceed [yes/no] -> Setup ssh access for '$($prop.name) / $($prop.host)'"
 
-        $USER_AT_HOST = $h.Value
+    if ($answer -eq 'yes') {
+
+        $USER_AT_HOST = (Get-XmlNode -Node $prop -XPath "host").InnerText
         $PUBKEYPATH = "$HOME\.ssh\id_ed25519.pub"
     
         $pubKey = (Get-Content "$PUBKEYPATH" | Out-String); ssh "$USER_AT_HOST" "mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '${pubKey}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"

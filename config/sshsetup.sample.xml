@@ -1,0 +1,8 @@
+<settings>
+  <network>
+    <forwarding>
+      <interfacceAlias>___REPLACE_WITH_VALUE___</interfacceAlias>
+      <interfacceAlias>___REPLACE_WITH_VALUE___</interfacceAlias>
+    </forwarding>
+  </network>
+</settings>
