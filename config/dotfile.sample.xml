@@ -1,0 +1,20 @@
+<settings>
+  <enableNetworkForwarding>___REPLACE_WITH_VALUE___</enableNetworkForwarding>
+  <robocopy>
+    <job>
+      <name>___REPLACE_WITH_VALUE___</name>
+      <source>___REPLACE_WITH_VALUE___</source>
+      <target>___REPLACE_WITH_VALUE___</target>
+      <file>___REPLACE_WITH_VALUE___</file>
+      <options>___REPLACE_WITH_VALUE___</options>
+    </job>
+  </robocopy>
+  <rsync>
+    <job>
+      <name>___REPLACE_WITH_VALUE___</name>
+      <source>___REPLACE_WITH_VALUE___</source>
+      <target>___REPLACE_WITH_VALUE___</target>
+      <options>___REPLACE_WITH_VALUE___</options>
+    </job>
+  </rsync>
+</settings>

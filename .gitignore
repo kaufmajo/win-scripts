@@ -1,0 +1,35 @@
+.env
+
+# ------------
+# extensions
+
+*.pdf
+*.xml
+
+# ------------
+# folders
+
+.vscode
+.config/*
+config/*
+
+
+# ------------
+# exclude
+
+!config/*.sample.env
+!config/*.sample.xml
+
+# ------------
+# Note
+#
+# The trailing /* is significant:
+#
+# The pattern dir/ excludes a directory named dir and (implicitly) everything under it.
+# With dir/, Git will never look at anything under dir, and thus will never apply any 
+# of the “un-exclude” patterns to anything under dir.
+#
+# The pattern dir/* says nothing about dir itself; it just excludes everything under dir. 
+# With dir/*, Git will process the direct contents of dir, giving other patterns a chance 
+# to “un-exclude” some bit of the content (!dir/sub/).
+#
