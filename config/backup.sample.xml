@@ -14,9 +14,10 @@
     <hyperVPoolFolder>___REPLACE_WITH_VALUE___</hyperVPoolFolder>
     <hyperVExportFolder>___REPLACE_WITH_VALUE___</hyperVExportFolder>
   </folder>
-  <dotfile>
-    <script>___REPLACE_WITH_VALUE___</script>
-  </dotfile>
+  <script>
+    <dotfile>___REPLACE_WITH_VALUE___</dotfile>
+    <unlockMasterDrive>___REPLACE_WITH_VALUE___</unlockMasterDrive>
+  </script>
   <robocopy>
     <job>
       <name>___REPLACE_WITH_VALUE___</name>
