@@ -71,24 +71,24 @@ try {
 
         # Or use password
         Unlock-BitLocker -MountPoint $DriveLetter -Password (ConvertTo-SecureString $env:ZOK_BACKUP_MASTERDRIVE_PASSWORD -AsPlainText -Force)
-
+        
         # Confirm unlock
         $NewBitLockerVolume = Get-BitLockerVolume -MountPoint $DriveLetter
         
         if ($NewBitLockerVolume.LockStatus -eq "Unlocked") {
             
-            Write-Host "Drive $DriveLetter successfully unlocked."
+            Write-Host "`nDrive $DriveLetter successfully unlocked."
         }
         else {
-            Write-Host "Failed to unlock drive $DriveLetter."
+            Write-Host "`nFailed to unlock drive $DriveLetter."
         }
     }
     else {
-        Write-Host "Drive $DriveLetter is already unlocked."
+        Write-Host "`nDrive $DriveLetter is already unlocked."
     }
 }
 catch {
-    Write-Error "Fehler beim Entsperren: $($_.Exception.Message)"
+    Write-Error "`nFehler beim Entsperren: $($_.Exception.Message)"
 }
 
 Start-Sleep -Seconds 10
