@@ -31,9 +31,6 @@ param(
     [switch]$IncludeDotfileBackup = $false,
     [switch]$IncludeHyperVExport = $false,
     [switch]$IncludeWslExport = $false,
-    [switch]$IncludeWslDevpool = $false,
-    [switch]$IncludeWslWebpool = $false,
-    [switch]$IncludeWslVHosts = $false,
     [switch]$SkipTimeline = $false,
     [switch]$UnlockMasterDrive = $false
 )
