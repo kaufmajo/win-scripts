@@ -24,7 +24,6 @@
       <source>___REPLACE_WITH_VALUE___</source>
       <target>___REPLACE_WITH_VALUE___</target>
       <options>___REPLACE_WITH_VALUE___</options>
-      <switch>___REPLACE_WITH_VALUE___</switch>
     </job>
   </robocopy>
   <wslExport>

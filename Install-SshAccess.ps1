@@ -43,9 +43,7 @@ $baseDirectory = split-path $MyInvocation.MyCommand.Path
 
 foreach ($prop in $sshsetupConfig.settings.access.job) {
     
-    if ([bool]::Parse($prop.done) -eq $true) {
-        continue
-    }
+    if ([bool]::Parse($prop.done) -eq $true) { continue }
 
     $answer = Read-Host "Are you sure you want to proceed [yes/no] -> Setup ssh access for '$($prop.name) / $($prop.host)'"
 

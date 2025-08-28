@@ -27,6 +27,7 @@
 # Params
 
 param(
+    [switch]$IncludeAllRobocopyJobs = $false,
     [switch]$IncludeDotfileBackup = $false,
     [switch]$IncludeHyperVExport = $false,
     [switch]$IncludeWslExport = $false,
@@ -286,13 +287,15 @@ if ($IncludeDotfileBackup) {
 
 foreach ($prop in $backupConfig.settings.robocopy.job) {
 
-    $switchParameter = Get-Variable -Name $prop.switch
+    if ([string]::IsNullOrEmpty($prop.source) -or [string]::IsNullOrEmpty($prop.target)) { continue }
 
-    if ($prop.switch -eq $switchParameter.Name -and $switchParameter.Value -eq $true) {
+    Write-Host ""
+    Write-Host "$($prop.name)" -ForegroundColor Cyan
+    Write-Host "---"
 
-        Write-Host ""
-        Write-Host "$($prop.name)" -ForegroundColor Cyan
-        Write-Host "---"
+    $answer = if ($IncludeAllRobocopyJobs) { 'yes' } else { Read-Host "Are you sure you want to proceed [yes/no] (default: yes)" }
+
+    if ( $IncludeAllRobocopyJobs -or $answer -eq 'yes' -or [string]::IsNullOrWhiteSpace($answer)) {
 
         robocopy $prop.source $prop.target ($prop.options -split " ")
     }
