@@ -1,5 +1,8 @@
+# Get current working directory
+$baseDirectory = split-path $MyInvocation.MyCommand.Path
+
 # Path to the .env file
-$envFilePath = ".\config\.env"
+$envFilePath = "$($baseDirectory)\..\..\config\.env"
 
 # Read the .env file and process each line
 Get-Content $envFilePath | ForEach-Object {
@@ -16,5 +19,5 @@ Get-Content $envFilePath | ForEach-Object {
     }
 }
 
-# Optional: View loaded environment variables
+# View loaded environment variables
 # Get-ChildItem Env:
