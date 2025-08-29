@@ -1,7 +1,8 @@
 #---------------------------------------------------------------
 # Header
 
-Write-Host "`n"
+Write-Host ">>> Script started at $(Get-Date) <<<"
+Write-Host ""
 Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
 Write-Host "|                                               |            " -ForegroundColor Cyan
 Write-Host "|               Install script                  |            " -ForegroundColor Cyan
@@ -48,8 +49,6 @@ if (-not ($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Ad
     
     exit 0
 }
-
-Write-Host "Runing install script on $(Get-Date)" 
 
 #---------------------------------------------------------------
 # Powershell Execution Policy

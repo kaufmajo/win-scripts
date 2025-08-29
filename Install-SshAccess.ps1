@@ -26,6 +26,9 @@ Write-Host "|                                               |            " -Fore
 Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
 Write-Host
 
+Write-Host " >>> Please run similar script on wsl to setup ssh access from wsl  <<<" -ForegroundColor Red
+Write-Host 
+
 #---------------------------------------------------------------
 # Config
 
@@ -37,6 +40,34 @@ $baseDirectory = split-path $MyInvocation.MyCommand.Path
 
 # Dot Source required Function Libraries
 . "$($env:USERPROFILE)\Joachim\Devpool\Skripte\library\function\Function_Get-XmlNode.ps1"
+
+#--------------------------------------------------------------------------
+# Check if script is running as Administrator
+
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+
+    $answer = Read-Host "Do you want to run this script as admin? [yes/no]?"
+
+    if ($answer -eq 'yes') {
+
+        Write-Host "Restarting script as administrator..."
+    
+        $ScriptPath = $MyInvocation.MyCommand.Path
+    
+        $Arguments = @(
+            '-NoProfile'
+            '-ExecutionPolicy', 'Bypass'
+            '-File', $ScriptPath
+        )
+    
+        Start-Process pwsh `
+            -Verb runAs `
+            -ArgumentList $Arguments `
+            -Wait
+
+        exit 0
+    }
+}
 
 #--------------------------------------------------------------------------
 # Process
