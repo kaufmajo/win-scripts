@@ -2,8 +2,11 @@
 # Params
 
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$DriveLetter
+    [Parameter(Mandatory = $false)]
+    [string]$MasterDriveLetter = "",
+
+    [Parameter(Mandatory = $false)]
+    [string]$SlaveDriveLetter = ""
 )
 
 #---------------------------------------------------------------
@@ -18,8 +21,14 @@ $baseDirectory = split-path $MyInvocation.MyCommand.Path
 #--------------------------------------------------------------------------
 # Check required env variables 
 
-if (-not $env:ZOK_BACKUP_MASTERDRIVE_PASSWORD) {
+if ($MasterDriveLetter -ne "" -and -not $env:ZOK_BACKUP_MASTERDRIVE_PASSWORD) {
     Write-Host "ZOK_BACKUP_MASTERDRIVE_PASSWORD does not exists." -ForegroundColor Red
+    Start-Sleep -Seconds 10
+    exit 1
+}
+
+if ($SlaveDriveLetter -ne "" -and -not $env:ZOK_BACKUP_SLAVEDRIVE_PASSWORD) {
+    Write-Host "ZOK_BACKUP_SLAVEDRIVE_PASSWORD does not exists." -ForegroundColor Red
     Start-Sleep -Seconds 10
     exit 1
 }
@@ -37,7 +46,8 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
         '-NoProfile'
         '-ExecutionPolicy', 'Bypass'
         '-File', $ScriptPath
-        '-DriveLetter', $DriveLetter
+        '-MasterDriveLetter', $MasterDriveLetter
+        '-SlaveDriveLetter', $SlaveDriveLetter
     )
     
     Start-Process pwsh `
@@ -52,7 +62,7 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 # Bitlocker logic
 
 try {
-    $BitLockerVolume = Get-BitLockerVolume -MountPoint $DriveLetter -ErrorAction SilentlyContinue
+    $BitLockerVolume = Get-BitLockerVolume -MountPoint $MasterDriveLetter -ErrorAction SilentlyContinue
 
     if ($error[0]) {
 
@@ -67,24 +77,24 @@ try {
     # Check if the volume is locked
     if ($BitLockerVolume.LockStatus -eq "Locked") {
         
-        Write-Host "Drive $DriveLetter is locked. Attempting to unlock..."
+        Write-Host "Drive $MasterDriveLetter is locked. Attempting to unlock..."
 
         # Or use password
-        Unlock-BitLocker -MountPoint $DriveLetter -Password (ConvertTo-SecureString $env:ZOK_BACKUP_MASTERDRIVE_PASSWORD -AsPlainText -Force)
+        Unlock-BitLocker -MountPoint $MasterDriveLetter -Password (ConvertTo-SecureString $env:ZOK_BACKUP_MASTERDRIVE_PASSWORD -AsPlainText -Force)
         
         # Confirm unlock
-        $NewBitLockerVolume = Get-BitLockerVolume -MountPoint $DriveLetter
+        $NewBitLockerVolume = Get-BitLockerVolume -MountPoint $MasterDriveLetter
         
         if ($NewBitLockerVolume.LockStatus -eq "Unlocked") {
             
-            Write-Host "`nDrive $DriveLetter successfully unlocked."
+            Write-Host "`nDrive $MasterDriveLetter successfully unlocked."
         }
         else {
-            Write-Host "`nFailed to unlock drive $DriveLetter."
+            Write-Host "`nFailed to unlock drive $MasterDriveLetter."
         }
     }
     else {
-        Write-Host "`nDrive $DriveLetter is already unlocked."
+        Write-Host "`nDrive $MasterDriveLetter is already unlocked."
     }
 }
 catch {

@@ -27,12 +27,12 @@
 # Params
 
 param(
+    [string]$ConfigFile = "",
     [switch]$IncludeAllRobocopyJobs = $false,
     [switch]$IncludeDotfileBackup = $false,
     [switch]$IncludeHyperVExport = $false,
     [switch]$IncludeWslExport = $false,
-    [switch]$SkipTimeline = $false,
-    [switch]$UnlockMasterDrive = $false
+    [switch]$SkipTimeline = $false
 )
 
 #---------------------------------------------------------------
@@ -58,13 +58,42 @@ Write-Host
 #---------------------------------------------------------------
 # Config
 
-# Get current working directory
-$baseDirectory = split-path $MyInvocation.MyCommand.Path
+# Get current base directory
+# Prefer PSScriptRoot when available; fall back to MyInvocation
+$baseDirectory = $PSScriptRoot
+
+# Resolve config path: use provided -ConfigFile if given; else default
+if ([string]::IsNullOrWhiteSpace($ConfigFile)) {
+    $configPath = Join-Path -Path $baseDirectory -ChildPath 'config\backup.xml'
+}
+else {
+    try {
+        # Allow relative or absolute paths for -ConfigFile
+        $configPath = (Resolve-Path -LiteralPath $ConfigFile -ErrorAction Stop).Path
+    }
+    catch {
+        throw "The provided -ConfigFile path '$ConfigFile' could not be resolved. $($_.Exception.Message)"
+    }
+}
+
+# Validate and load the config XML
+if (-not (Test-Path -LiteralPath $configPath)) {
+    throw "Config file not found at: $configPath"
+}
+
+Write-Host "Using config file: $configPath" -ForegroundColor Cyan
 
 # Get config values
-[xml]$backupConfig = Get-Content ($baseDirectory + "/config/backup.xml")
+try {
+    [xml]$backupConfig = Get-Content -LiteralPath $configPath -ErrorAction Stop
+}
+catch {
+    throw "Failed to load config file '$configPath'. $($_.Exception.Message)"
+}
 
+#---------------------------------------------------------------
 # Dot Source required Function Libraries
+
 . $baseDirectory\library\function\Function_Get-XmlNode.ps1
 
 #---------------------------------------------------------------
@@ -74,6 +103,8 @@ $masterDriveLetter = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdriv
 $slaveDriveLetter = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/letter").InnerText
 $masterDriveDesc = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/description").InnerText
 $slaveDriveDesc = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/description").InnerText
+$masterDriveBitlocker = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/bitlocker").InnerText
+$slaveDriveBitlocker = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/bitlocker").InnerText
 $source = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/rootfolder").InnerText
 $timelineRoot = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/timelineFolder").InnerText
 $wslExportPath = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/wslExportFolder").InnerText
@@ -105,17 +136,27 @@ Write-Host ""
 #---------------------------------------------------------------
 # Unlock drive
 
-if ($UnlockMasterDrive) {
+if (($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") -or ($slaveDriveLetter -ne "" -and $slaveDriveBitlocker -eq "true")) {
 
     Write-Host ""
     Write-Host "Unlock Master Drive" -ForegroundColor Cyan
     Write-Host "---"
     Write-Host ""
 
-    $unlockMasterDriveScript = (Get-XmlNode -Xml $backupConfig -XPath "settings/script/unlockMasterDrive").InnerText
-       
+    $Arguments = @('-File', (Get-XmlNode -Xml $backupConfig -XPath "settings/script/unlockMasterDrive").InnerText)
+
+    if ($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") {
+        $Arguments += "-MasterDriveLetter"
+        $Arguments += $masterDriveLetter
+    }
+
+    if ($slaveDriveLetter -ne "" -and $slaveDriveBitlocker -eq "true") {
+        $Arguments += "-SlaveDriveLetter"
+        $Arguments += $slaveDriveLetter
+    }
+
     $process = Start-Process pwsh `
-        -ArgumentList "-File `"$unlockMasterDriveScript`" -DriveLetter `"$masterDriveLetter`"" `
+        -ArgumentList $Arguments `
         -Wait `
         -PassThru
 
@@ -127,8 +168,8 @@ if ($UnlockMasterDrive) {
 #---------------------------------------------------------------
 # Show drives overview
 
-$master = Get-PSDrive -Name $masterDriveLetter -ErrorAction SilentlyContinue
-$slave = Get-PSDrive -Name $slaveDriveLetter -ErrorAction SilentlyContinue
+$master = if ($masterDriveLetter) { Get-PSDrive -Name $masterDriveLetter -ErrorAction SilentlyContinue } else { $false }
+$slave = if ($slaveDriveLetter) { Get-PSDrive -Name $slaveDriveLetter -ErrorAction SilentlyContinue } else { $false }
 $drives = Get-PSDrive -PSProvider FileSystem
 
 if ($drives) {
@@ -140,8 +181,8 @@ if ($drives) {
 
         Write-Host ("{0}" -f $_.Name).PadRight(7) -NoNewline
         Write-Host ("{0}" -f $_.Description).PadRight(12) -NoNewline
-        if ($_.Name -eq $master.Name -and $_.Description -eq $masterDriveDesc) { Write-Host "Master" -NoNewline -ForegroundColor Green } else { Write-Host "" -NoNewline }
-        if ($_.Name -eq $slave.Name -and $_.Description -eq $slaveDriveDesc) { Write-Host "Slave" -ForegroundColor Green } else { Write-Host "" }
+        if ($master -and $_.Name -eq $master.Name -and $_.Description -eq $masterDriveDesc) { Write-Host "Master" -NoNewline -ForegroundColor Green } else { Write-Host "" -NoNewline }
+        if ($slave -and $_.Name -eq $slave.Name -and $_.Description -eq $slaveDriveDesc) { Write-Host "Slave" -ForegroundColor Green } else { Write-Host "" }
     }    
 }
 
