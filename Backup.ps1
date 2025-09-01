@@ -362,7 +362,7 @@ if (!$SkipTimeline) {
     }
 
     # Keep only last 10 timeline folders
-    $timelineFolders = Get-ChildItem -Path $timelineRoot -Directory | Sort-Object Name
+    $timelineFolders = Get-ChildItem -Path $timelineRoot -Directory | Sort-Object Name -Descending
     $timelineFolders | Select-Object -Skip 30 | ForEach-Object {
         Remove-Item -LiteralPath $_.FullName -Recurse -Force -ProgressAction SilentlyContinue
         Write-Host "Deleted: $($_.FullName)" -ForegroundColor Yellow
