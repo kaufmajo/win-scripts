@@ -6,7 +6,13 @@ param(
     [string]$MasterDriveLetter = "",
 
     [Parameter(Mandatory = $false)]
-    [string]$SlaveDriveLetter = ""
+    [string]$SlaveDriveLetter = "",
+
+    [Parameter(Mandatory = $false)]
+    [string]$MasterDriveEnvvar = "",
+
+    [Parameter(Mandatory = $false)]
+    [string]$SlaveDriveEnvvar = ""
 )
 
 #---------------------------------------------------------------
@@ -21,14 +27,14 @@ $baseDirectory = split-path $MyInvocation.MyCommand.Path
 #--------------------------------------------------------------------------
 # Check required env variables 
 
-if ($MasterDriveLetter -ne "" -and -not $env:ZOK_BACKUP_MASTERDRIVE_PASSWORD) {
-    Write-Host "ZOK_BACKUP_MASTERDRIVE_PASSWORD does not exists." -ForegroundColor Red
+if ($MasterDriveLetter -ne "" -and ($MasterDriveEnvvar -eq "" -or $null -eq [System.Environment]::GetEnvironmentVariable($MasterDriveEnvvar))) {
+    Write-Host "Master Drive / Envar does not exists." -ForegroundColor Red
     Start-Sleep -Seconds 10
     exit 1
 }
 
-if ($SlaveDriveLetter -ne "" -and -not $env:ZOK_BACKUP_SLAVEDRIVE_PASSWORD) {
-    Write-Host "ZOK_BACKUP_SLAVEDRIVE_PASSWORD does not exists." -ForegroundColor Red
+if ($SlaveDriveLetter -ne "" -and ($SlaveDriveEnvvar -eq "" -or $null -eq [System.Environment]::GetEnvironmentVariable($SlaveDriveEnvvar))) {
+    Write-Host "Slave Drive / Envar does not exists." -ForegroundColor Red
     Start-Sleep -Seconds 10
     exit 1
 }
@@ -48,6 +54,8 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
         '-File', $ScriptPath
         '-MasterDriveLetter', $MasterDriveLetter
         '-SlaveDriveLetter', $SlaveDriveLetter
+        '-MasterDriveEnvvar', $MasterDriveEnvvar
+        '-SlaveDriveEnvvar', $SlaveDriveEnvvar
     )
     
     Start-Process pwsh `
@@ -61,44 +69,70 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 #--------------------------------------------------------------------------
 # Bitlocker logic
 
-try {
-    $BitLockerVolume = Get-BitLockerVolume -MountPoint $MasterDriveLetter -ErrorAction SilentlyContinue
-
-    if ($error[0]) {
-
-        Write-Error "Fehler beim Abrufen des BitLocker-Volumes: $($error[0].Exception.Message)"
-        Start-Sleep -Seconds 10
-        exit 1
-    }
-
-    # Display BitLocker volume status
-    $BitLockerVolume | Select-Object * | Format-List
+foreach ($i in 1..2) {
     
-    # Check if the volume is locked
-    if ($BitLockerVolume.LockStatus -eq "Locked") {
-        
-        Write-Host "Drive $MasterDriveLetter is locked. Attempting to unlock..."
+    #--------------------------------------------------------------------------
+    # Set drive letter and env var based on iteration
 
-        # Or use password
-        Unlock-BitLocker -MountPoint $MasterDriveLetter -Password (ConvertTo-SecureString $env:ZOK_BACKUP_MASTERDRIVE_PASSWORD -AsPlainText -Force)
-        
-        # Confirm unlock
-        $NewBitLockerVolume = Get-BitLockerVolume -MountPoint $MasterDriveLetter
-        
-        if ($NewBitLockerVolume.LockStatus -eq "Unlocked") {
-            
-            Write-Host "`nDrive $MasterDriveLetter successfully unlocked."
-        }
-        else {
-            Write-Host "`nFailed to unlock drive $MasterDriveLetter."
-        }
+    if (1 -eq $i) {
+        $drive = $MasterDriveLetter.ToUpper()
+        $envVar = [System.Environment]::GetEnvironmentVariable($MasterDriveEnvvar)
     }
     else {
-        Write-Host "`nDrive $MasterDriveLetter is already unlocked."
+        $drive = $SlaveDriveLetter.ToUpper()
+        $envVar = [System.Environment]::GetEnvironmentVariable($SlaveDriveEnvvar)
     }
-}
-catch {
-    Write-Error "`nFehler beim Entsperren: $($_.Exception.Message)"
+
+    Write-Host "`nProcessing drive $drive ...`n" -ForegroundColor Cyan
+
+    if( $drive -eq "") {
+        Write-Host "Drive letter or environment variable is empty. Skipping..." -ForegroundColor Yellow
+        continue
+    }
+
+
+    #--------------------------------------------------------------------------
+    # Process BitLocker drive
+
+    try {
+        $BitLockerVolume = Get-BitLockerVolume -MountPoint $drive -ErrorAction SilentlyContinue
+
+        if ($error[0]) {
+
+            Write-Error "Fehler beim Abrufen des BitLocker-Volumes: $($error[0].Exception.Message)"
+            Start-Sleep -Seconds 10
+            exit 1
+        }
+
+        # Display BitLocker volume status
+        $BitLockerVolume | Select-Object * | Format-List
+    
+        # Check if the volume is locked
+        if ($BitLockerVolume.LockStatus -eq "Locked") {
+        
+            Write-Host "Drive $drive is locked. Attempting to unlock..."
+
+            # Or use password
+            Unlock-BitLocker -MountPoint $drive -Password (ConvertTo-SecureString $envVar -AsPlainText -Force)
+        
+            # Confirm unlock
+            $NewBitLockerVolume = Get-BitLockerVolume -MountPoint $drive
+        
+            if ($NewBitLockerVolume.LockStatus -eq "Unlocked") {
+            
+                Write-Host "`nDrive $drive successfully unlocked."
+            }
+            else {
+                Write-Host "`nFailed to unlock drive $drive."
+            }
+        }
+        else {
+            Write-Host "`nDrive $drive is already unlocked."
+        }
+    }
+    catch {
+        Write-Error "`nFehler beim Entsperren: $($_.Exception.Message)"
+    }
 }
 
 Start-Sleep -Seconds 10

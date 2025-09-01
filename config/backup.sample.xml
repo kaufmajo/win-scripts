@@ -3,11 +3,13 @@
     <letter>___REPLACE_WITH_VALUE___</letter>
     <description>___REPLACE_WITH_VALUE___</description>
     <bitlocker>___REPLACE_WITH_VALUE___</bitlocker>
+    <envvar>___REPLACE_WITH_VALUE___</envvar>
   </masterdrive>
   <slavedrive>
     <letter>___REPLACE_WITH_VALUE___</letter>
     <description>___REPLACE_WITH_VALUE___</description>
     <bitlocker>___REPLACE_WITH_VALUE___</bitlocker>
+    <envvar>___REPLACE_WITH_VALUE___</envvar>
   </slavedrive>
   <folder>
     <rootfolder>___REPLACE_WITH_VALUE___</rootfolder>

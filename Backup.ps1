@@ -148,11 +148,15 @@ if (($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") -or ($slav
     if ($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") {
         $Arguments += "-MasterDriveLetter"
         $Arguments += $masterDriveLetter
+        $Arguments += "-MasterDriveEnvvar"
+        $Arguments += $(Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/envvar").InnerText
     }
 
     if ($slaveDriveLetter -ne "" -and $slaveDriveBitlocker -eq "true") {
         $Arguments += "-SlaveDriveLetter"
         $Arguments += $slaveDriveLetter
+        $Arguments += "-SlaveDriveEnvvar"
+        $Arguments += $(Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/envvar").InnerText
     }
 
     $process = Start-Process pwsh `
