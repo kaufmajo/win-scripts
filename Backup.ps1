@@ -361,6 +361,15 @@ if (!$SkipTimeline) {
         throw "Timeline root path not found: $timelineRoot"
     }
 
+    # Keep only last 10 timeline folders
+    $timelineFolders = Get-ChildItem -Path $timelineRoot -Directory | Sort-Object Name
+    $timelineFolders | Select-Object -Skip 3 | ForEach-Object {
+        Remove-Item -LiteralPath $_.FullName -Recurse -Force -ProgressAction SilentlyContinue
+        Write-Host "Deleted: $($_.FullName)" -ForegroundColor Yellow
+    }
+
+    Write-Host
+
     # Timeline subfolder and diff file
     $timelineDir = $timelineRoot + "$((Get-Date).ToString('yyyy-MM-dd_HH_mm_ss'))\"
     $timelineDiff = $timelineDir + "diff.txt"
