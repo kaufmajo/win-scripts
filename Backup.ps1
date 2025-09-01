@@ -105,7 +105,7 @@ $masterDriveDesc = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/
 $slaveDriveDesc = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/description").InnerText
 $masterDriveBitlocker = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/bitlocker").InnerText
 $slaveDriveBitlocker = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/bitlocker").InnerText
-$source = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/rootfolder").InnerText
+$rootfolder = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/rootfolder").InnerText
 $timelineRoot = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/timelineFolder").InnerText
 $wslExportPath = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/wslExportFolder").InnerText
 $hyperVExportPath = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/hyperVExportFolder").InnerText
@@ -256,6 +256,10 @@ if (-not ($master) -and -not ($slave)) { exit }
 #
 #---------------------------------------------------------------
 
+if ( -not (Test-Path -Path $rootfolder) ) {
+    throw "Root path not found: $rootfolder"
+}
+
 #---------------------------------------------------------------
 # HyperV Export
 
@@ -353,6 +357,10 @@ Write-Host ""
 
 if (!$SkipTimeline) { 
 
+    if ( -not (Test-Path -Path $timelineRoot) ) {
+        throw "Timeline root path not found: $timelineRoot"
+    }
+
     # Timeline subfolder and diff file
     $timelineDir = $timelineRoot + "$((Get-Date).ToString('yyyy-MM-dd_HH_mm_ss'))\"
     $timelineDiff = $timelineDir + "diff.txt"
@@ -363,7 +371,7 @@ if (!$SkipTimeline) {
     }
 
     # Create diff file
-    robocopy $source $target3 /l /s /xo /fp /ns /nc /ndl /np /njh /njs /XD $timelineExcludes /unilog:"$($timelineDiff)" | Out-Null
+    robocopy $rootfolder $target3 /l /s /xo /fp /ns /nc /ndl /np /njh /njs /XD $timelineExcludes /unilog:"$($timelineDiff)" | Out-Null
 
     # Read diff file and copy files to timeline subfolder
     Get-Content $timelineDiff | Where-Object { $_ -match '^\s+|\s+$' } | ForEach-Object {
@@ -379,7 +387,7 @@ if (!$SkipTimeline) {
         # copy new or changed files
         else {
         
-            $versionCopyFileDst = [IO.Path]::GetDirectoryName($versionCopyFileSrc.Replace($source, $timelineDir)) + "\"
+            $versionCopyFileDst = [IO.Path]::GetDirectoryName($versionCopyFileSrc.Replace($rootfolder, $timelineDir)) + "\"
             xcopy $versionCopyFileSrc $versionCopyFileDst
         }
     }
@@ -397,7 +405,7 @@ if ($master -and $masterDriveDesc -eq $master.Description) {
     Write-Host "Robocopy to $($target1)" -ForegroundColor Cyan
     Write-Host "---"
 
-    robocopy $source $target1 /r:0 /ndl /njs /njh /MIR /XD $backupExcludes # /r:0
+    robocopy $rootfolder $target1 /r:0 /ndl /njs /njh /MIR /XD $backupExcludes # /r:0
 }
 
 #---------------------------------------------------------------
@@ -409,7 +417,7 @@ if ($slave -and $slaveDriveDesc -eq $slave.Description) {
     Write-Host "Robocopy to $($target2)" -ForegroundColor Cyan
     Write-Host "---"
 
-    robocopy $source $target2 /r:0 /ndl /njs /njh /MIR /XD $backupExcludes # /r:0
+    robocopy $rootfolder $target2 /r:0 /ndl /njs /njh /MIR /XD $backupExcludes # /r:0
 }
 
 #---------------------------------------------------------------
