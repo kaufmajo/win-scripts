@@ -38,13 +38,16 @@ $baseDirectory = split-path $MyInvocation.MyCommand.Path
 # Get config values
 [xml]$sshsetupConfig = Get-Content ($baseDirectory + "/config/sshsetup.xml")
 
+#---------------------------------------------------------------
 # Dot Source required Function Libraries
-. "$($env:USERPROFILE)\Joachim\Devpool\Skripte\library\function\Function_Get-XmlNode.ps1"
+
+. $baseDirectory\library\function\Function_Get-XmlNode.ps1
+. $baseDirectory\library\function\Function_Test-IsAdmin.ps1
 
 #--------------------------------------------------------------------------
 # Check if script is running as Administrator
 
-if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+if (-not (Test-IsAdmin)) {
 
     $answer = Read-Host "Do you want to run this script as admin? [yes/no]?"
 
@@ -52,20 +55,15 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 
         Write-Host "Restarting script as administrator..."
     
-        $ScriptPath = $MyInvocation.MyCommand.Path
+        $Arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
     
-        $Arguments = @(
-            '-NoProfile'
-            '-ExecutionPolicy', 'Bypass'
-            '-File', $ScriptPath
-        )
-    
-        Start-Process pwsh `
-            -Verb runAs `
-            -ArgumentList $Arguments `
-            -Wait
+        $proc = Start-Process pwsh -Verb RunAs -ArgumentList $Arguments -Wait -PassThru
 
-        exit 0
+        if ($proc.ExitCode -ne 0) {
+            throw "Elevated run failed with exit code $($proc.ExitCode). See the elevated log for details."
+        }
+   
+        exit $proc.ExitCode
     }
 }
 

@@ -41,16 +41,15 @@ if ($enableForwarding.InnerText -eq "true") {
 
     # Start EnableNetworkForwarding.ps1 as separate process to get elevated rights via UAC prompt
 
-    $process = Start-Process pwsh `
+    $proc = Start-Process pwsh `
         -Verb runAs `
-        -ArgumentList "-File `"$($env:USERPROFILE)\Joachim\Devpool\Skripte\Enable-NetworkForwarding.ps1`"" `
+        -ArgumentList "-File `"$($PSScriptRoot)\Enable-NetworkForwarding.ps1`"" `
         -Wait `
         -PassThru
 
-    if ($process.ExitCode -ne 0) {
+    if ($proc.ExitCode -ne 0) {
         throw "Enable network forwarding script process failed with exit code $($process.ExitCode)"
     }
-
 }
 
 #---------------------------------------------------------------

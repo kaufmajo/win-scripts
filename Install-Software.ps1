@@ -11,6 +11,11 @@ Write-Host "|                                               |            " -Fore
 Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
 Write-Host ""
 
+#---------------------------------------------------------------
+# Dot Source required Function Libraries
+
+. $baseDirectory\library\function\Function_Test-IsAdmin.ps1
+
 #--------------------------------------------------------------------------
 # Init
 
@@ -39,9 +44,7 @@ $winget = [ordered]@{
 #---------------------------------------------------------------
 # Check current principal mode
 
-$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-
-if (-not ($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))) {
+if (-not (Test-IsAdmin)) {
 
     Write-Host 
     Write-Host "Script must run with administrator privileges: " -NoNewline -ForegroundColor Red

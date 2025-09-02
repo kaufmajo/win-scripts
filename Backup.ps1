@@ -146,24 +146,17 @@ if (($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") -or ($slav
 
     $Arguments = @('-File', (Get-XmlNode -Xml $backupConfig -XPath "settings/script/unlockMasterDrive").InnerText)
 
-    if ($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") {
-        $Arguments += "-MasterDriveLetter"
-        $Arguments += $masterDriveLetter
-        $Arguments += "-MasterDriveEnvvar"
-        $Arguments += $(Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/envvar").InnerText
-    }
-
-    if ($slaveDriveLetter -ne "" -and $slaveDriveBitlocker -eq "true") {
-        $Arguments += "-SlaveDriveLetter"
-        $Arguments += $slaveDriveLetter
-        $Arguments += "-SlaveDriveEnvvar"
-        $Arguments += $(Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/envvar").InnerText
-    }
+    if ($MasterDriveLetter -ne '') { $Arguments += @('-MasterDriveLetter', $MasterDriveLetter) }
+    if ($SlaveDriveLetter -ne '') { $Arguments += @('-SlaveDriveLetter', $SlaveDriveLetter) }
+    if ($MasterDriveEnvvar -ne '') { $Arguments += @('-MasterDriveEnvvar', $(Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/envvar").InnerText) }
+    if ($SlaveDriveEnvvar -ne '') { $Arguments += @('-SlaveDriveEnvvar', $(Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/envvar").InnerText) }
 
     $process = Start-Process pwsh `
         -ArgumentList $Arguments `
         -Wait `
-        -PassThru
+        -PassThru `
+        -RedirectStandardOutput "./log/stdout.log" `
+        -RedirectStandardError "./log/stderr.log"
 
     if ($process.ExitCode -ne 0) {
         throw "Unlock master drive script process failed with exit code $($process.ExitCode)"
@@ -321,9 +314,9 @@ if ($IncludeDotfileBackup) {
 
     $dotfileScript = (Get-XmlNode -Xml $backupConfig -XPath "settings/script/dotfile").InnerText
 
-    $process = Start-Process pwsh -ArgumentList "$dotfileScript" -Wait -PassThru
+    $proc = Start-Process pwsh -ArgumentList "$dotfileScript" -Wait -PassThru
 
-    if ($process.ExitCode -ne 0) {
+    if ($proc.ExitCode -ne 0) {
         throw "Dotfile script process failed with exit code $($process.ExitCode)"
     }
 }
