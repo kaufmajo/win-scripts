@@ -155,8 +155,8 @@ if (($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") -or ($slav
         -ArgumentList $Arguments `
         -Wait `
         -PassThru `
-        -RedirectStandardOutput "./log/stdout.log" `
-        -RedirectStandardError "./log/stderr.log"
+        -RedirectStandardOutput "$($PSScriptRoot)/log/stdout.log" `
+        -RedirectStandardError "$($PSScriptRoot)/log/stderr.log"
 
     if ($process.ExitCode -ne 0) {
         throw "Unlock master drive script process failed with exit code $($process.ExitCode)"
