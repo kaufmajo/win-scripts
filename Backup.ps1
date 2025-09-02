@@ -36,6 +36,17 @@ param(
 )
 
 #---------------------------------------------------------------
+# Check PowerShell edition
+
+if ($PSVersionTable.PSEdition -eq 'Core') {
+    Write-Output "Running in PowerShell (Core)"
+}
+elseif ($PSVersionTable.PSEdition -eq 'Desktop') {
+    Write-Output "Running in Windows PowerShell. Please use PowerShell (Core) instead."
+    Exit 1;
+}
+
+#---------------------------------------------------------------
 # Error handling and start
 
 $Error.Clear();
