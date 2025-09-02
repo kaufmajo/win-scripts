@@ -221,7 +221,7 @@ if (-not $slave -or $slaveDriveDesc -ne $slave.FileSystemLabel) {
 #---------------------------------------------------------------
 # Check and set target2
 
-if ($slave -and $slaveDriveDesc -eq $slave.Description -and (Test-Path -Path "$($slaveDriveLetter):")) {
+if ($slave -and $slaveDriveDesc -eq $slave.FileSystemLabel -and (Test-Path -Path "$($slaveDriveLetter):")) {
     $target2 = "$($slaveDriveLetter):\$($env:COMPUTERNAME)\$($env:UserName)\"
     $target3 = $target2
 }
@@ -233,7 +233,7 @@ else {
 #---------------------------------------------------------------
 # Check and set target1
 
-if ($master -and $masterDriveDesc -eq $master.Description -and (Test-Path -Path "$($masterDriveLetter):")) {
+if ($master -and $masterDriveDesc -eq $master.FileSystemLabel -and (Test-Path -Path "$($masterDriveLetter):")) {
     $target1 = "$($masterDriveLetter):\$($env:COMPUTERNAME)\$($env:UserName)\"
     $target3 = $target1
 }
@@ -408,7 +408,7 @@ else {
 #---------------------------------------------------------------
 # Backup target1
 
-if ($master -and $masterDriveDesc -eq $master.Description) {
+if ($master -and $masterDriveDesc -eq $master.FileSystemLabel) {
 
     Write-Host ""
     Write-Host "Robocopy to $($target1)" -ForegroundColor Cyan
@@ -420,7 +420,7 @@ if ($master -and $masterDriveDesc -eq $master.Description) {
 #---------------------------------------------------------------
 # Backup target2
 
-if ($slave -and $slaveDriveDesc -eq $slave.Description) {
+if ($slave -and $slaveDriveDesc -eq $slave.FileSystemLabel) {
 
     Write-Host ""
     Write-Host "Robocopy to $($target2)" -ForegroundColor Cyan
