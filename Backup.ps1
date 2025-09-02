@@ -94,6 +94,7 @@ catch {
 #---------------------------------------------------------------
 # Dot Source required Function Libraries
 
+. $baseDirectory\library\function\Function_Get-BackupVolumes.ps1
 . $baseDirectory\library\function\Function_Get-XmlNode.ps1
 
 #---------------------------------------------------------------
@@ -172,9 +173,9 @@ if (($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") -or ($slav
 #---------------------------------------------------------------
 # Show drives overview
 
-$master = if ($masterDriveLetter) { Get-PSDrive -Name $masterDriveLetter -ErrorAction SilentlyContinue } else { $false }
-$slave = if ($slaveDriveLetter) { Get-PSDrive -Name $slaveDriveLetter -ErrorAction SilentlyContinue } else { $false }
-$drives = Get-PSDrive -PSProvider FileSystem
+$master = if ($masterDriveLetter) { Get-Volume -DriveLetter $masterDriveLetter -ErrorAction SilentlyContinue } else { $false }
+$slave = if ($slaveDriveLetter) { Get-Volume -DriveLetter $slaveDriveLetter -ErrorAction SilentlyContinue } else { $false }
+$drives = Get-BackupVolumes
 
 if ($drives) {
         
@@ -182,11 +183,10 @@ if ($drives) {
     Write-Host "______ ___________ ________"
         
     $drives | ForEach-Object {
-
-        Write-Host ("{0}" -f $_.Name).PadRight(7) -NoNewline
-        Write-Host ("{0}" -f $_.Description).PadRight(12) -NoNewline
-        if ($master -and $_.Name -eq $master.Name -and $_.Description -eq $masterDriveDesc) { Write-Host "Master" -NoNewline -ForegroundColor Green } else { Write-Host "" -NoNewline }
-        if ($slave -and $_.Name -eq $slave.Name -and $_.Description -eq $slaveDriveDesc) { Write-Host "Slave" -ForegroundColor Green } else { Write-Host "" }
+        Write-Host ("{0}" -f $_.DriveLetter).PadRight(7) -NoNewline
+        Write-Host ("{0}" -f $_.FileSystemLabel).PadRight(12) -NoNewline
+        if ($master -and $_.DriveLetter -eq $master.DriveLetter -and $_.FileSystemLabel -eq $masterDriveDesc) { Write-Host "Master" -NoNewline -ForegroundColor Green } else { Write-Host "" -NoNewline }
+        if ($slave -and $_.DriveLetter -eq $slave.DriveLetter -and $_.FileSystemLabel -eq $slaveDriveDesc) { Write-Host "Slave" -ForegroundColor Green } else { Write-Host "" }
     }    
 }
 
@@ -195,27 +195,27 @@ Write-Host ""
 #---------------------------------------------------------------
 # Pick master drive
 
-if (-not $master -or $masterDriveDesc -ne $master.Description) {
+if (-not $master -or $masterDriveDesc -ne $master.FileSystemLabel) {
     
     Write-Host "Enter " -NoNewline
     Write-Host "master " -NoNewline -ForegroundColor Yellow
     Write-Host "drive letter: " -NoNewline
     $masterDriveLetter = Read-Host
 
-    $master = if ($masterDriveLetter) { Get-PSDrive -Name $masterDriveLetter -ErrorAction SilentlyContinue } else { $false }
+    $master = if ($masterDriveLetter) { Get-Volume -DriveLetter $masterDriveLetter -ErrorAction SilentlyContinue } else { $false }
 }
 
 #---------------------------------------------------------------
 # Pick slave drive
 
-if (-not $slave -or $slaveDriveDesc -ne $slave.Description) {
+if (-not $slave -or $slaveDriveDesc -ne $slave.FileSystemLabel) {
 
     Write-Host "Enter " -NoNewline
     Write-Host "slave " -NoNewline -ForegroundColor Yellow
     Write-Host "drive letter: " -NoNewline
     $slaveDriveLetter = Read-Host
 
-    $slave = if ($slaveDriveLetter) { Get-PSDrive -Name $slaveDriveLetter -ErrorAction SilentlyContinue } else { $false }
+    $slave = if ($slaveDriveLetter) { Get-Volume -DriveLetter FileSystem -Name $slaveDriveLetter -ErrorAction SilentlyContinue } else { $false }
 }
 
 #---------------------------------------------------------------
