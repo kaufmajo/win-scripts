@@ -13,7 +13,7 @@ Write-Host
 Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
 Write-Host "|                                               |            " -ForegroundColor Cyan
 Write-Host "|               Dotfile script                  |            " -ForegroundColor Cyan
-Write-Host "|               Version 2.0                     |            " -ForegroundColor Cyan
+Write-Host "|               Version 2.1                     |            " -ForegroundColor Cyan
 Write-Host "|                                               |            " -ForegroundColor Cyan
 Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
 Write-Host ""
