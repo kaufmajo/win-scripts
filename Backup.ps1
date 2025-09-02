@@ -137,23 +137,23 @@ $isAdmin = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.W
 
 if (-not ($isAdmin)) {
 
-    Write-Host ""
+    Write-Host
     Write-Host "If script must run with administrator privileges: " -ForegroundColor Yellow
     Write-Host "sudo pwsh -executionpolicy remotesigned -File $($MyInvocation.MyCommand.Definition)" -ForegroundColor Yellow  # https://learn.microsoft.com/en-us/dotnet/api/system.management.automation.invocationinfo?view=powershellsdk-7.4.0
-    Write-Host ""
+    Write-Host
 }
 
-Write-Host ""
+Write-Host
 
 #---------------------------------------------------------------
 # Unlock drive
 
 if (($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") -or ($slaveDriveLetter -ne "" -and $slaveDriveBitlocker -eq "true")) {
 
-    Write-Host ""
+    Write-Host
     Write-Host "Unlock Master Drive" -ForegroundColor Cyan
     Write-Host "---"
-    Write-Host ""
+    Write-Host
 
     $Arguments = @('-File', (Get-XmlNode -Xml $backupConfig -XPath "settings/script/unlockMasterDrive").InnerText)
 
@@ -189,12 +189,12 @@ if ($drives) {
     $drives | ForEach-Object {
         Write-Host ("{0}" -f $_.DriveLetter).PadRight(7) -NoNewline
         Write-Host ("{0}" -f $_.FileSystemLabel).PadRight(12) -NoNewline
-        if ($master -and $_.DriveLetter -eq $master.DriveLetter -and $_.FileSystemLabel -eq $masterDriveDesc) { Write-Host "Master" -NoNewline -ForegroundColor Green } else { Write-Host "" -NoNewline }
-        if ($slave -and $_.DriveLetter -eq $slave.DriveLetter -and $_.FileSystemLabel -eq $slaveDriveDesc) { Write-Host "Slave" -ForegroundColor Green } else { Write-Host "" }
+        if ($master -and $_.DriveLetter -eq $master.DriveLetter -and $_.FileSystemLabel -eq $masterDriveDesc) { Write-Host "Master" -NoNewline -ForegroundColor Green } else { Write-Host -NoNewline }
+        if ($slave -and $_.DriveLetter -eq $slave.DriveLetter -and $_.FileSystemLabel -eq $slaveDriveDesc) { Write-Host "Slave" -ForegroundColor Green } else { Write-Host }
     }    
 }
 
-Write-Host ""
+Write-Host
 
 #---------------------------------------------------------------
 # Pick master drive
@@ -248,7 +248,7 @@ else {
 
 #---------------------------------------------------------------
 
-Write-Host ""
+Write-Host
 
 if (-not ($master) -and -not ($slave)) { exit }
 
@@ -273,9 +273,10 @@ if ($IncludeHyperVExport) {
         throw "HyperV Export path not found: $hyperVExportPath"
     }
 
-    Write-Host ""
+    Write-Host
     Write-Host "HyperV Export for $($prop.name)" -ForegroundColor Cyan
     Write-Host "---"
+    Write-Host
 
     foreach ($prop in $backupConfig.settings.hyperVExport.job) {
 
@@ -298,9 +299,10 @@ if ($IncludeWslExport) {
         throw "WSL Export path not found: $wslExportPath"
     }
 
-    Write-Host ""
+    Write-Host
     Write-Host "WSL Export for $($prop.name)" -ForegroundColor Cyan
     Write-Host "---"
+    Write-Host
 
     foreach ($prop in $backupConfig.settings.wslExport.job) {
 
@@ -319,9 +321,10 @@ if ($IncludeWslExport) {
 
 if ($IncludeDotfileBackup) {
 
-    Write-Host ""
+    Write-Host
     Write-Host "Dotfile Script" -ForegroundColor Cyan
     Write-Host "---"
+    Write-Host
 
     $dotfileScript = (Get-XmlNode -Xml $backupConfig -XPath "settings/script/dotfile").InnerText
 
@@ -339,9 +342,10 @@ foreach ($prop in $backupConfig.settings.robocopy.job) {
 
     if ([string]::IsNullOrEmpty($prop.source) -or [string]::IsNullOrEmpty($prop.target)) { continue }
 
-    Write-Host ""
+    Write-Host
     Write-Host "$($prop.name)" -ForegroundColor Cyan
     Write-Host "---"
+    Write-Host
 
     $answer = if ($IncludeAllRobocopyJobs) { 'yes' } else { Read-Host "Are you sure you want to proceed [yes/no] (default: yes)" }
 
@@ -354,10 +358,10 @@ foreach ($prop in $backupConfig.settings.robocopy.job) {
 #---------------------------------------------------------------
 # Timeline
 
-Write-Host ""
+Write-Host
 Write-Host "Timeline" -ForegroundColor Cyan
 Write-Host "---"
-Write-Host ""
+Write-Host
 
 if (!$SkipTimeline) { 
 
@@ -414,9 +418,10 @@ else {
 
 if ($master -and $masterDriveDesc -eq $master.FileSystemLabel) {
 
-    Write-Host ""
+    Write-Host
     Write-Host "Robocopy to $($target1)" -ForegroundColor Cyan
     Write-Host "---"
+    Write-Host
 
     robocopy $rootfolder $target1 /r:0 /ndl /njs /njh /MIR /XD $backupExcludes # /r:0
 }
@@ -426,15 +431,16 @@ if ($master -and $masterDriveDesc -eq $master.FileSystemLabel) {
 
 if ($slave -and $slaveDriveDesc -eq $slave.FileSystemLabel) {
 
-    Write-Host ""
+    Write-Host
     Write-Host "Robocopy to $($target2)" -ForegroundColor Cyan
     Write-Host "---"
+    Write-Host
 
     robocopy $rootfolder $target2 /r:0 /ndl /njs /njh /MIR /XD $backupExcludes # /r:0
 }
 
 #---------------------------------------------------------------
 
-Write-Host ""
+Write-Host
 
 #---------------------------------------------------------------
