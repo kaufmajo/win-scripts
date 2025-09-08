@@ -148,7 +148,7 @@ try {
         }
     }
 
-    Wait-ForInput -ForegroundColor Yellow -Timeout 10
+    Wait-ForInput -Message "Press Enter to continue..." -ForegroundColor Yellow -Timeout 10
 
     exit 0
 }

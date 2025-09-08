@@ -2,7 +2,7 @@ function Wait-ForInput {
 
   param(
     [Parameter(Mandatory = $false)]
-    [string] $Message = "Press Enter to continue...",
+    [string] $Message = "",
 
     [Parameter(Mandatory = $false)]
     [string] $ForegroundColor = "White",
@@ -13,7 +13,7 @@ function Wait-ForInput {
     [Parameter(Mandatory = $false)]
     [string] $DefaultValue = ""
   )
-
+  
   # Write prompt without newline
   Write-Host "$Message (Timeout in $($Timeout)Sec)" -ForegroundColor $ForegroundColor -NoNewline
 

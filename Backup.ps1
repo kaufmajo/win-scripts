@@ -205,7 +205,7 @@ if (-not $master -or $masterDriveDesc -ne $master.FileSystemLabel) {
     Write-Host "Enter " -NoNewline
     Write-Host "master " -NoNewline -ForegroundColor Yellow
     Write-Host "drive letter: " -NoNewline
-    $masterDriveLetter = Read-Host
+    $masterDriveLetter = Wait-ForInput
 
     $master = if ($masterDriveLetter) { Get-Volume -DriveLetter $masterDriveLetter -ErrorAction SilentlyContinue } else { $false }
 }
@@ -218,7 +218,7 @@ if (-not $slave -or $slaveDriveDesc -ne $slave.FileSystemLabel) {
     Write-Host "Enter " -NoNewline
     Write-Host "slave " -NoNewline -ForegroundColor Yellow
     Write-Host "drive letter: " -NoNewline
-    $slaveDriveLetter = Read-Host
+    $slaveDriveLetter = Wait-ForInput
 
     $slave = if ($slaveDriveLetter) { Get-Volume -DriveLetter FileSystem -Name $slaveDriveLetter -ErrorAction SilentlyContinue } else { $false }
 }
