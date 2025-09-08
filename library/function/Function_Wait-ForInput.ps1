@@ -15,7 +15,7 @@ function Wait-ForInput {
   )
   
   # Write prompt without newline
-  Write-Host "$Message (Timeout in $($Timeout)Sec)" -ForegroundColor $ForegroundColor -NoNewline
+  Write-Host "(Timeout in $($Timeout)Sec) $Message" -ForegroundColor $ForegroundColor -NoNewline
 
   # Read characters until Enter or timeout
   $sb = [System.Text.StringBuilder]::new()

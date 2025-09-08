@@ -32,6 +32,7 @@ $baseDirectory = split-path $MyInvocation.MyCommand.Path
 
 . $baseDirectory\library\function\Function_Get-XmlNode.ps1
 . $baseDirectory\library\function\Function_Test-IsAdmin.ps1
+. $baseDirectory\library\function\Function_Wait-ForInput.ps1
 
 #--------------------------------------------------------------------------
 # Check if script is running as Administrator
@@ -99,7 +100,7 @@ try {
     }
   }
 
-  Start-Sleep -Seconds 3
+  Wait-ForInput -Message "Press Enter to continue..." -ForegroundColor Yellow -Timeout 10
 
   #---------------------------------------------------------------
 

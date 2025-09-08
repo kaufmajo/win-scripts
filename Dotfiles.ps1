@@ -30,6 +30,11 @@ $baseDirectory = split-path $MyInvocation.MyCommand.Path
 # Dot Source required Function Libraries
 . "$($env:USERPROFILE)\Joachim\Devpool\Skripte\library\function\Function_Get-XmlNode.ps1"
 
+#---------------------------------------------------------------
+# Dot Source required Function Libraries
+
+. $baseDirectory\library\function\Function_Wait-ForInput.ps1
+
 #--------------------------------------------------------------------------
 # network forwarding
 
@@ -82,4 +87,4 @@ foreach ($prop in $dotfileConfig.settings.rsync.job) {
     }
 }
 
-Start-Sleep -Seconds 5
+Wait-ForInput -Message "Press Enter to continue..." -ForegroundColor Yellow -Timeout 10
