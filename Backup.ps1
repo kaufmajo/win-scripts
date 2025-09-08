@@ -369,7 +369,7 @@ if (!$SkipTimeline) {
         throw "Timeline root path not found: $timelineRoot"
     }
 
-    # Keep only last 10 timeline folders
+    # Keep only last timeline folders
     $timelineFolders = Get-ChildItem -Path $timelineRoot -Directory | Sort-Object Name -Descending
     $timelineFolders | Select-Object -Skip 30 | ForEach-Object {
         Remove-Item -LiteralPath $_.FullName -Recurse -Force -ProgressAction SilentlyContinue

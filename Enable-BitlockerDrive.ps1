@@ -30,19 +30,18 @@ $baseDirectory = split-path $MyInvocation.MyCommand.Path
 # Dot Source required Function Libraries
 
 . $baseDirectory\library\function\Function_Test-IsAdmin.ps1
+. $baseDirectory\library\function\Function_Wait-ForInput.ps1
 
 #--------------------------------------------------------------------------
 # Check required env variables 
 
 if ($MasterDriveLetter.Length -eq 1 -and ($MasterDriveEnvvar -eq "" -or $null -eq [System.Environment]::GetEnvironmentVariable($MasterDriveEnvvar))) {
-    Write-Host "Master Drive / Envar does not exists." -ForegroundColor Red
-    Start-Sleep -Seconds 10
+    Wait-ForInput -Message "Master Drive / Envar does not exists." -ForegroundColor Red -Timeout 10
     exit 1
 }
 
 if ($SlaveDriveLetter.Length -eq 1 -and ($SlaveDriveEnvvar -eq "" -or $null -eq [System.Environment]::GetEnvironmentVariable($SlaveDriveEnvvar))) {
-    Write-Host "Slave Drive / Envar does not exists." -ForegroundColor Red
-    Start-Sleep -Seconds 10
+    Wait-ForInput -Message "Slave Drive / Envar does not exists." -ForegroundColor Red -Timeout 10
     exit 1
 }
 
@@ -149,7 +148,7 @@ try {
         }
     }
 
-    Start-Sleep -Seconds 10
+    Wait-ForInput -Message "Press a key to continue ..." -ForegroundColor Yellow -Timeout 10
 
     exit 0
 }

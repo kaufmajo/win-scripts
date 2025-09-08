@@ -82,4 +82,4 @@ foreach ($prop in $dotfileConfig.settings.rsync.job) {
     }
 }
 
-Start-Sleep -Seconds 10
+Start-Sleep -Seconds 5
