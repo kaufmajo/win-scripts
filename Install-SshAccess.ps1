@@ -74,7 +74,7 @@ foreach ($prop in $sshsetupConfig.settings.access.job) {
     
     if ([bool]::Parse($prop.done) -eq $true) { continue }
 
-    $answer = Read-Host "Are you sure you want to proceed [yes/no] -> Setup ssh access for '$($prop.name) / $($prop.host)'"
+    $answer = Read-Host "Are you sure you want to proceed? [yes/no] -> Setup ssh access for '$($prop.name) / $($prop.host)'"
 
     if ($answer -eq 'yes') {
 

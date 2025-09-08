@@ -1,18 +1,21 @@
 function Wait-ForInput {
 
   param(
-    [Parameter(Mandatory = $true)]
-    [string] $Message,
+    [Parameter(Mandatory = $false)]
+    [string] $Message = "Press Enter to continue...",
 
     [Parameter(Mandatory = $false)]
     [string] $ForegroundColor = "White",
 
     [Parameter(Mandatory = $false)]
-    [int] $Timeout = 10
+    [int] $Timeout = 10,
+
+    [Parameter(Mandatory = $false)]
+    [string] $DefaultValue = ""
   )
 
   # Write prompt without newline
-  Write-Host $Message -ForegroundColor $ForegroundColor -NoNewline
+  Write-Host "$Message (Timeout in $($Timeout)Sec)" -ForegroundColor $ForegroundColor -NoNewline
 
   # Read characters until Enter or timeout
   $sb = [System.Text.StringBuilder]::new()
@@ -29,7 +32,7 @@ function Wait-ForInput {
         'Enter' {
           # finish input
           Write-Host ""  # newline
-          return $sb.ToString()
+          return ($sb.Length -eq 0) ? $DefaultValue : $sb.ToString()
         }
         'Backspace' {
           if ($sb.Length -gt 0) {
@@ -55,7 +58,7 @@ function Wait-ForInput {
   # timed out
   Write-Host ""  # move to next line for cleanliness
   Write-Host "No input received within $Timeout seconds, proceeding..." -ForegroundColor Yellow
-  return $null
+  return $DefaultValue
 }
 
-Wait-ForInput -Message "Function Wait-ForInput loaded." -ForegroundColor Green -Timeout 10
+#Wait-ForInput -Message "Function Wait-ForInput loaded." -ForegroundColor Green -Timeout 10

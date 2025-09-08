@@ -148,7 +148,7 @@ try {
         }
     }
 
-    Wait-ForInput -Message "Press a key to continue ..." -ForegroundColor Yellow -Timeout 10
+    Wait-ForInput -ForegroundColor Yellow -Timeout 10
 
     exit 0
 }

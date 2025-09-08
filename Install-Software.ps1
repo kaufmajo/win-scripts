@@ -56,9 +56,9 @@ if (-not (Test-IsAdmin)) {
 #---------------------------------------------------------------
 # Powershell Execution Policy
 
-$answer = Read-Host "Are you sure you want to proceed [y/n] -> Set Powershell Execution Policy to 'RemoteSigned'"
+$answer = Read-Host "Are you sure you want to proceed? [yes/no] -> Set Powershell Execution Policy to 'RemoteSigned'"
 
-if ($answer -eq 'y') {
+if ($answer -eq 'yes') {
     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
 }
 
@@ -67,9 +67,9 @@ if ($answer -eq 'y') {
 
 foreach ($h in $winget.GetEnumerator() ) {
 
-    $answer = Read-Host "Are you sure you want to proceed [y/n] -> Install '$($h.Name)'"
+    $answer = Read-Host "Are you sure you want to proceed? [yes/no] -> Install '$($h.Name)'"
 
-    if ($answer -eq 'y') {
+    if ($answer -eq 'yes') {
         Invoke-Expression $h.Value
         Write-Host ""
     }

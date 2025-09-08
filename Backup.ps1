@@ -107,6 +107,7 @@ catch {
 
 . $baseDirectory\library\function\Function_Get-BackupVolumes.ps1
 . $baseDirectory\library\function\Function_Get-XmlNode.ps1
+. $baseDirectory\library\function\Function_Wait-ForInput.ps1
 
 #---------------------------------------------------------------
 # Init
@@ -347,9 +348,9 @@ foreach ($prop in $backupConfig.settings.robocopy.job) {
     Write-Host "---"
     Write-Host
 
-    $answer = if ($IncludeAllRobocopyJobs) { 'yes' } else { Read-Host "Are you sure you want to proceed [yes/no] (default: yes)" }
+    $answer = if ($IncludeAllRobocopyJobs) { 'yes' } else { Wait-ForInput "Are you sure you want to proceed? [yes/no] (default: yes)" -DefaultValue "yes" -Timeout 10 }
 
-    if ( $IncludeAllRobocopyJobs -or $answer -eq 'yes' -or [string]::IsNullOrWhiteSpace($answer)) {
+    if ( $IncludeAllRobocopyJobs -or $answer -eq 'yes') {
 
         robocopy $prop.source $prop.target ($prop.options -split " ")
     }
