@@ -21,7 +21,7 @@ Write-Host
 Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
 Write-Host "|                                               |            " -ForegroundColor Cyan
 Write-Host "|               Setup Ssh access script         |            " -ForegroundColor Cyan
-Write-Host "|               Version 2.1                     |            " -ForegroundColor Cyan
+Write-Host "|               Version 2.2                     |            " -ForegroundColor Cyan
 Write-Host "|                                               |            " -ForegroundColor Cyan
 Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
 Write-Host
