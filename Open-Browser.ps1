@@ -47,7 +47,8 @@ function Show-Menu {
 $sites = @(
     @{site = "Custom"; query = "" },
     @{site = "https://www.google.com"; query = "/search?q=" },
-    @{site = "https://www.bing.com"; query = "/search?q=" }
+    @{site = "https://www.bing.com"; query = "/search?q=" },
+    @{site = "https://chatgpt.com"; query = "" }
 )
 
 $site = Show-Menu -Title "Please select a site:" -Options $sites
@@ -59,7 +60,7 @@ Write-Host
 
 if ( $site.site -eq "Custom" ) {
 
-    $customUrl = Read-Host "Custom URL"
+    $customUrl = Read-Host "URL"
     
     if (![string]::IsNullOrWhiteSpace($customUrl)) {
         Write-Host "`nYou selected: $customUrl`n"
@@ -75,7 +76,7 @@ $url = $site.site
 
 if ($site.query -ne "") {
 
-    $searchTerm = Read-Host "Search term"
+    $searchTerm = Read-Host "Search"
     
     if (![string]::IsNullOrWhiteSpace($searchTerm)) {
         $encodedTerm = [System.Web.HttpUtility]::UrlEncode($searchTerm)
@@ -84,7 +85,6 @@ if ($site.query -ne "") {
 }
 
 Write-Host "`nYou selected: $($url)`n"
-
 Start-Process microsoft-edge:$url
 
 exit
