@@ -1,4 +1,21 @@
 # ---------------------------------------------------
+# Script Parameters
+
+param(
+    [Parameter(Position = 0)] [string] $openUrl
+)
+
+# ---------------------------------------------------
+# Site Definitions
+
+$sites = @(
+    @{ site = "Custom"; query = "" },
+    @{ site = "https://www.google.com"; query = "/search?q=" },
+    @{ site = "https://www.bing.com"; query = "/search?q=" },
+    @{ site = "https://chatgpt.com"; query = "" }
+)
+
+# ---------------------------------------------------
 # Function: Show-Menu
 # Description: Displays an interactive menu in the console for user selection.
 
@@ -71,14 +88,23 @@ function Open-Url {
 }
 
 # ---------------------------------------------------
-# Main Script
+# Open URL directly if provided
 
-$sites = @(
-    @{ site = "Custom"; query = "" },
-    @{ site = "https://www.google.com"; query = "/search?q=" },
-    @{ site = "https://www.bing.com"; query = "/search?q=" },
-    @{ site = "https://chatgpt.com"; query = "" }
-)
+if ([string]::IsNullOrWhiteSpace($openUrl) -eq $false) {
+
+    $finalUrl = Resolve-Url -UrlOrHost $openUrl.Trim()
+
+    Write-Host
+    Write-Host "Opening URL: $finalUrl"
+    Write-Host
+
+    Open-Url -Url $finalUrl  # add -PreferEdge if you want to force Edge
+
+    exit
+}
+
+# ---------------------------------------------------
+# Show menu and get selection
 
 $site = Show-Menu -Title "Please select a site:" -Options $sites
 
@@ -99,25 +125,29 @@ if ($site.site -eq "Custom") {
 
     if (![string]::IsNullOrWhiteSpace($customUrl)) {
 
-        $final = Resolve-Url -UrlOrHost $customUrl.Trim()
+        $finalUrl = Resolve-Url -UrlOrHost $customUrl.Trim()
+        
         Write-Host
-        Write-Host "You selected: $final"
+        Write-Host "You selected: $finalUrl"
         Write-Host
-        Open-Url -Url $final  # add -PreferEdge if you want to force Edge
+
+        Open-Url -Url $finalUrl  # add -PreferEdge if you want to force Edge
 
         exit
 
     }
     else {
-        
+
+        Write-Host
         Write-Host "No URL entered. Exiting."
+        Write-Host
         
         exit
     }
 }
 
 # ---------------------------------------------------
-# Handle Search Query case
+# Handle selected URL case
 
 $url = $site.site
 
