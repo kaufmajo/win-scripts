@@ -220,7 +220,7 @@ if (-not $slave -or $slaveDriveDesc -ne $slave.FileSystemLabel) {
     Write-Host "drive letter: " -NoNewline
     $slaveDriveLetter = Wait-ForInput
 
-    $slave = if ($slaveDriveLetter) { Get-Volume -DriveLetter FileSystem -Name $slaveDriveLetter -ErrorAction SilentlyContinue } else { $false }
+    $slave = if ($slaveDriveLetter) { Get-Volume -DriveLetter $slaveDriveLetter -ErrorAction SilentlyContinue } else { $false }
 }
 
 #---------------------------------------------------------------
