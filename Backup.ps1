@@ -152,7 +152,7 @@ Write-Host
 if (($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") -or ($slaveDriveLetter -ne "" -and $slaveDriveBitlocker -eq "true")) {
 
     Write-Host
-    Write-Host "Unlock Master Drive" -ForegroundColor Cyan
+    Write-Host "Unlock master/slave drive" -ForegroundColor Cyan
     Write-Host "---"
     Write-Host
 
@@ -171,7 +171,7 @@ if (($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") -or ($slav
         -RedirectStandardError "$($PSScriptRoot)/log/stderr.log"
 
     if ($process.ExitCode -ne 0) {
-        throw "Unlock master drive script process failed with exit code $($process.ExitCode)"
+        throw "Unlock master/slave drive script process failed with exit code $($process.ExitCode)"
     }
 }
 
@@ -325,6 +325,7 @@ if ($IncludeDotfileBackup) {
     Write-Host
     Write-Host "Dotfile Script" -ForegroundColor Cyan
     Write-Host "---"
+    Write-Host
     Write-Host
 
     $dotfileScript = (Get-XmlNode -Xml $backupConfig -XPath "settings/script/dotfile").InnerText
