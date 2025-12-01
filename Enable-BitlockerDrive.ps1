@@ -110,10 +110,11 @@ try {
         # Process BitLocker drive
 
         try {
-            $BitLockerVolume = Get-BitLockerVolume -MountPoint $drive -ErrorAction SilentlyContinue
-
-            if ($Error.Count -gt 0 -or $null -eq $BitLockerVolume) {
-                Write-Host "Drive $drive not found or not BitLocker enabled. Skipping..." -ForegroundColor Yellow
+            try {
+                $BitLockerVolume = Get-BitLockerVolume -MountPoint $drive -ErrorAction Stop
+            }
+            catch {
+                Write-Host "Drive $drive not found or BitLocker is not enabled. Skipping..." -ForegroundColor Yellow
                 continue
             }
 
