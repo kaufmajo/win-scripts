@@ -29,7 +29,7 @@ $winget = [ordered]@{
     Total_Commander                      = 'winget install --id Ghisler.TotalCommander -e'
     Notepad_PlusPlus                     = 'winget install --id=Notepad++.Notepad++ -e'
     #LibreOffice                          = 'winget install --id=TheDocumentFoundation.LibreOffice  -e'
-    #VLC                                  = 'winget install --id=VideoLAN.VLC  -e'
+    VLC                                  = 'winget install --id=VideoLAN.VLC  -e'
     Neovim                               = 'winget install --id=Neovim.Neovim -e'
     Git                                  = 'winget install --id=Git.Git -e'
     Nmap                                 = 'winget install --id=Insecure.Nmap -e'
