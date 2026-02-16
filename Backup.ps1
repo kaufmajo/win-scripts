@@ -275,7 +275,7 @@ if ($IncludeHyperVExport) {
     }
 
     Write-Host
-    Write-Host "HyperV Export for $($prop.name)" -ForegroundColor Cyan
+    Write-Host "HyperV Export for ... " -ForegroundColor Cyan
     Write-Host "---"
     Write-Host
 
@@ -301,7 +301,7 @@ if ($IncludeWslExport) {
     }
 
     Write-Host
-    Write-Host "WSL Export for $($prop.name)" -ForegroundColor Cyan
+    Write-Host "WSL Export for ... " -ForegroundColor Cyan
     Write-Host "---"
     Write-Host
 
