@@ -7,12 +7,17 @@ $ErrorActionPreference = "Stop"
 #---------------------------------------------------------------
 # Logging setup
 
-$timestamp  = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$stdoutLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_$timestamp.log"
-$stdErrLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_$timestamp.log"
-$stdoutElevatedLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_elevated_$timestamp.log"
-$stdErrElevatedLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_elevated_$timestamp.log"
+$stdoutLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_$timestamp.log"
+$stdErrLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_$timestamp.log"
+$stdoutElevatedLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_elevated_$timestamp.log"
+$stdErrElevatedLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_elevated_$timestamp.log"
+
+#---------------------------------------------------------------
+# Start logging
+
+Start-Transcript -Path $stdoutElevatedLog
 
 #---------------------------------------------------------------
 # Header
@@ -43,7 +48,20 @@ $baseDirectory = $PSScriptRoot
 . $baseDirectory\library\function\Function_Test-IsAdmin.ps1
 . $baseDirectory\library\function\Function_Wait-ForInput.ps1
 
-#--------------------------------------------------------------------------
+#---------------------------------------------------------------
+# Check WSL network is active
+# This must be run befire elevating the script, otherwise the WSL command will not be run with elevated privileges and thus fail
+
+if (-not (Test-IsAdmin)) {
+
+  Write-Host "Try to run 'wsl -d Debian hostname -i' ..." -ForegroundColor Green
+  
+  wsl -d Debian hostname -i
+
+  Write-Host
+}
+
+#---------------------------------------------------------------
 # Check if script is running as Administrator
 
 if (-not (Test-IsAdmin)) {
@@ -65,27 +83,12 @@ if (-not (Test-IsAdmin)) {
   exit $proc.ExitCode
 }
 
-#--------------------------------------------------------------------------
-# Start logging
-
-Start-Transcript -Path $stdoutElevatedLog
-
-#--------------------------------------------------------------------------
+#---------------------------------------------------------------
 # Main logic
 
 try {
 
-  #--------------------------------------------------------------------------
-  # Check WSL network is active
-
-
-  Write-Host "Try to run 'wsl -d Debian hostname -i' ..." -ForegroundColor Green
-  
-  wsl -d Debian hostname -i
-
-  Write-Host
-
-  # --------------------------------------------------------------------------
+  #---------------------------------------------------------------
   # Check network forwarding for given interfaces
 
   $interfaces = Get-XmlNode -Xml $networkConfig -XPath "settings/network/forwarding" 
@@ -100,7 +103,7 @@ try {
 
     if ('Enabled' -ne $interface.Forwarding) {  
 
-      #--------------------------------------------------------------------------
+      #---------------------------------------------------------------
       # Enable network forwarding
 
       Write-Host "Enabling network forwarding: $($alias)" -ForegroundColor Yellow
@@ -116,9 +119,11 @@ try {
   exit 0
 }
 catch {
+  
   Write-Error $_
   exit 1 # make sure the elevated process returns non-zero
 }
 finally {
+  
   Stop-Transcript
 }

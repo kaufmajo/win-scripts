@@ -28,6 +28,11 @@ $stdoutElevatedLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName
 $stdErrElevatedLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_elevated_$timestamp.log"
 
 #---------------------------------------------------------------
+# Start logging
+
+Start-Transcript -Path $stdoutElevatedLog
+
+#---------------------------------------------------------------
 # Header
 
 Write-Host ">>> Script started at $(Get-Date) <<<"
@@ -55,7 +60,7 @@ $baseDirectory = split-path $MyInvocation.MyCommand.Path
 . $baseDirectory\library\function\Function_Test-IsAdmin.ps1
 . $baseDirectory\library\function\Function_Wait-ForInput.ps1
 
-#--------------------------------------------------------------------------
+#---------------------------------------------------------------
 # Check required env variables 
 
 if ($MasterDriveLetter.Length -eq 1 -and ($MasterDriveEnvvar -eq "" -or $null -eq [System.Environment]::GetEnvironmentVariable($MasterDriveEnvvar))) {
@@ -68,7 +73,7 @@ if ($SlaveDriveLetter.Length -eq 1 -and ($SlaveDriveEnvvar -eq "" -or $null -eq 
     exit 1
 }
 
-#--------------------------------------------------------------------------
+#---------------------------------------------------------------
 # Check if script is running as Administrator
 
 if (-not (Test-IsAdmin)) {
@@ -91,12 +96,7 @@ if (-not (Test-IsAdmin)) {
     exit $proc.ExitCode
 }
 
-#--------------------------------------------------------------------------
-# Start logging
-
-Start-Transcript -Path $stdoutElevatedLog
-
-#--------------------------------------------------------------------------
+#---------------------------------------------------------------
 # Main logic
 
 try {
@@ -104,12 +104,12 @@ try {
     # Make non-terminating errors throw so catch works
     $ErrorActionPreference = 'Stop'
 
-    #--------------------------------------------------------------------------
+    #---------------------------------------------------------------
     # Bitlocker logic
 
     foreach ($i in 1..2) {
     
-        #--------------------------------------------------------------------------
+        #---------------------------------------------------------------
         # Set drive letter and env var based on iteration
 
         if (1 -eq $i) {
@@ -129,7 +129,7 @@ try {
         }
 
 
-        #--------------------------------------------------------------------------
+        #---------------------------------------------------------------
         # Process BitLocker drive
 
         try {
@@ -177,9 +177,11 @@ try {
     exit 0
 }
 catch {
+    
     Write-Error $_
     exit 1 # make sure the elevated process returns non-zero
 }
 finally {
+    
     Stop-Transcript
 }
