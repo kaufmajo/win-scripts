@@ -2,8 +2,17 @@
 # Error handling and start
 
 $Error.Clear();
-$oldErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = "Stop"
+
+#---------------------------------------------------------------
+# Logging setup
+
+$timestamp  = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$stdoutLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_$timestamp.log"
+$stdErrLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_$timestamp.log"
+$stdoutElevatedLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_elevated_$timestamp.log"
+$stdErrElevatedLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_elevated_$timestamp.log"
 
 #---------------------------------------------------------------
 # Header
@@ -22,10 +31,10 @@ Write-Host
 # Config
 
 # Get current working directory
-$baseDirectory = split-path $MyInvocation.MyCommand.Path
+$baseDirectory = $PSScriptRoot
 
 # Get config values
-[xml]$networkConfig = Get-Content ($baseDirectory + "/config/network.xml")
+[xml]$networkConfig = Get-Content (Join-Path -Path $baseDirectory -ChildPath "config/network.xml")
 
 #---------------------------------------------------------------
 # Dot Source required Function Libraries
@@ -59,7 +68,7 @@ if (-not (Test-IsAdmin)) {
 #--------------------------------------------------------------------------
 # Start logging
 
-Start-Transcript -Path "$($PSScriptRoot)\log\stdout_evaluated.log"
+Start-Transcript -Path $stdoutElevatedLog
 
 #--------------------------------------------------------------------------
 # Main logic

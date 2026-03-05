@@ -18,6 +18,29 @@ param(
 )
 
 #---------------------------------------------------------------
+# Logging setup
+
+$timestamp  = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$stdoutLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_$timestamp.log"
+$stdErrLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_$timestamp.log"
+$stdoutElevatedLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_elevated_$timestamp.log"
+$stdErrElevatedLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_elevated_$timestamp.log"
+
+#---------------------------------------------------------------
+# Header
+
+Write-Host ">>> Script started at $(Get-Date) <<<"
+Write-Host
+Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
+Write-Host "|                                               |            " -ForegroundColor Cyan
+Write-Host "|               BitLocker drive script          |            " -ForegroundColor Cyan
+Write-Host "|               Version 2.2                     |            " -ForegroundColor Cyan
+Write-Host "|                                               |            " -ForegroundColor Cyan
+Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
+Write-Host
+
+#---------------------------------------------------------------
 # Env
 
 # Get current working directory
@@ -71,7 +94,7 @@ if (-not (Test-IsAdmin)) {
 #--------------------------------------------------------------------------
 # Start logging
 
-Start-Transcript -Path "$($PSScriptRoot)\log\stdout_evaluated.log"
+Start-Transcript -Path $stdoutElevatedLog
 
 #--------------------------------------------------------------------------
 # Main logic

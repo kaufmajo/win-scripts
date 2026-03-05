@@ -1,43 +1,92 @@
 <settings>
+  <enableNetworkForwarding>true</enableNetworkForwarding>
+
   <masterdrive>
-    <letter>___REPLACE_WITH_VALUE___</letter>
-    <description>___REPLACE_WITH_VALUE___</description>
-    <bitlocker>___REPLACE_WITH_VALUE___</bitlocker>
-    <envvar>___REPLACE_WITH_VALUE___</envvar>
+    <letter>x</letter>
+    <description>masterdrive</description>
+    <bitlocker>true</bitlocker>
+    <envvar>master_password_env</envvar>
   </masterdrive>
+
   <slavedrive>
-    <letter>___REPLACE_WITH_VALUE___</letter>
-    <description>___REPLACE_WITH_VALUE___</description>
-    <bitlocker>___REPLACE_WITH_VALUE___</bitlocker>
-    <envvar>___REPLACE_WITH_VALUE___</envvar>
+    <letter>y</letter>
+    <description>slavedrive</description>
+    <bitlocker>true</bitlocker>
+    <envvar>slave_password_env</envvar>
   </slavedrive>
+
   <folder>
-    <rootfolder>___REPLACE_WITH_VALUE___</rootfolder>
-    <timelineFolder>___REPLACE_WITH_VALUE___</timelineFolder>
-    <wslExportFolder>___REPLACE_WITH_VALUE___</wslExportFolder>
-    <hyperVPoolFolder>___REPLACE_WITH_VALUE___</hyperVPoolFolder>
-    <hyperVExportFolder>___REPLACE_WITH_VALUE___</hyperVExportFolder>
+    <rootfolder>c:\path\to\root</rootfolder>
+    <timelineFolder>c:\path\to\timeline</timelineFolder>
+    <wslExportFolder>c:\path\to\wsl</wslExportFolder>
+    <hyperVPoolFolder>c:\path\to\hyperv\pool</hyperVPoolFolder>
+    <hyperVExportFolder>c:\path\to\hyperv\export</hyperVExportFolder>
   </folder>
+
   <script>
-    <dotfile>___REPLACE_WITH_VALUE___</dotfile>
-    <unlockMasterDrive>___REPLACE_WITH_VALUE___</unlockMasterDrive>
+    <unlockMasterDrive>c:\path\to\script.ps1</unlockMasterDrive>
   </script>
+
   <robocopy>
     <job>
-      <name>___REPLACE_WITH_VALUE___</name>
-      <source>___REPLACE_WITH_VALUE___</source>
-      <target>___REPLACE_WITH_VALUE___</target>
-      <options>___REPLACE_WITH_VALUE___</options>
+      <type>backup</type>
+      <name>backup_job</name>
+      <source>source_path</source>
+      <target>target_path</target>
+      <file></file>
+      <options>robocopy_options</options>
+    </job>
+    <job>
+      <type>backup</type>
+      <name>backup_job</name>
+      <source>source_path</source>
+      <target>target_path</target>
+      <file></file>
+      <options>robocopy_options</options>
+    </job>
+    <job>
+      <type>config</type>
+      <name>config_job</name>
+      <source>source_path</source>
+      <target>target_path</target>
+      <file>filename</file>
+      <options>robocopy_options</options>
     </job>
   </robocopy>
+
+  <rsync>
+    <job>
+      <type>config</type>
+      <name>sync_job</name>
+      <source>user@host:/path</source>
+      <target>/path/to/target</target>
+      <options>rsync_options</options>
+    </job>
+    <job>
+      <type>config</type>
+      <name>sync_job</name>
+      <source>user@host:/path</source>
+      <target>/path/to/target</target>
+      <options>rsync_options</options>
+    </job>
+  </rsync>
+
   <wslExport>
     <job>
-      <name>___REPLACE_WITH_VALUE___</name>
+      <name>distro_name</name>
+    </job>
+    <job>
+      <name>distro_name</name>
     </job>
   </wslExport>
+
   <hyperVExport>
     <job>
-      <name>___REPLACE_WITH_VALUE___</name>
+      <name>vm_name</name>
+    </job>
+    <job>
+      <name>vm_name</name>
     </job>
   </hyperVExport>
+
 </settings>

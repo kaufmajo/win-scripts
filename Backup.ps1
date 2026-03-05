@@ -28,12 +28,22 @@
 
 param(
     [string]$ConfigFile = "",
-    [switch]$IncludeAllRobocopyJobs = $false,
-    [switch]$IncludeDotfileBackup = $false,
-    [switch]$IncludeHyperVExport = $false,
-    [switch]$IncludeWslExport = $false,
+    [switch]$IncludeBackup = $false,
+    [switch]$IncludeConfig = $false,
+    [switch]$IncludeHyperV = $false,
+    [switch]$IncludeWsl = $false,
     [switch]$SkipTimeline = $false
 )
+
+#---------------------------------------------------------------
+# Logging setup
+
+$timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$stdoutLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_$timestamp.log"
+$stdErrLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_$timestamp.log"
+$stdoutElevatedLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_elevated_$timestamp.log"
+$stdErrElevatedLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_elevated_$timestamp.log"
 
 #---------------------------------------------------------------
 # Check PowerShell edition
@@ -61,7 +71,7 @@ Write-Host
 Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
 Write-Host "|                                               |            " -ForegroundColor Cyan
 Write-Host "|               Backup script                   |            " -ForegroundColor Cyan
-Write-Host "|               Version 2.2                     |            " -ForegroundColor Cyan
+Write-Host "|               Version 3.0                     |            " -ForegroundColor Cyan
 Write-Host "|                                               |            " -ForegroundColor Cyan
 Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
 Write-Host
@@ -107,6 +117,7 @@ catch {
 
 . $baseDirectory\library\function\Function_Get-BackupVolumes.ps1
 . $baseDirectory\library\function\Function_Get-XmlNode.ps1
+. $baseDirectory\library\function\Function_Test-IsAdmin.ps1
 . $baseDirectory\library\function\Function_Wait-ForInput.ps1
 
 #---------------------------------------------------------------
@@ -118,11 +129,17 @@ $masterDriveDesc = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/
 $slaveDriveDesc = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/description").InnerText
 $masterDriveBitlocker = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/bitlocker").InnerText
 $slaveDriveBitlocker = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/bitlocker").InnerText
+# 
 $rootfolder = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/rootfolder").InnerText
 $timelineRoot = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/timelineFolder").InnerText
 $wslExportPath = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/wslExportFolder").InnerText
 $hyperVExportPath = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/hyperVExportFolder").InnerText
 $hyperVPoolPath = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/hyperVPoolFolder").InnerText
+# 
+$enableForwarding = (Get-XmlNode -Xml $backupConfig -XPath "settings/enableNetworkForwarding").InnerText
+$bitLockerScript = (Get-XmlNode -Xml $backupConfig -XPath "settings/script/unlockMasterDrive").InnerText
+$masterDriveEnvvar = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/envvar").InnerText
+$slaveDriveEnvvar = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/envvar").InnerText
 
 # Backup excludes
 $backupExcludes = [System.Collections.Generic.List[string]]@('$RECYCLE.BIN', 'System Volume Information', $timelineRoot, $hyperVPoolPath)
@@ -131,12 +148,10 @@ $timelineExcludes = [System.Collections.Generic.List[string]]@('$RECYCLE.BIN', '
 # Reset Error Action Preference
 $ErrorActionPreference = $oldErrorActionPreference
 
-#---------------------------------------------------------------
-# Check current principal mode
+#--------------------------------------------------------------------------
+# Check if script is running as Administrator
 
-$isAdmin = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-
-if (-not ($isAdmin)) {
+if (-not (Test-IsAdmin)) {
 
     Write-Host
     Write-Host "If script must run with administrator privileges: " -ForegroundColor Yellow
@@ -147,31 +162,108 @@ if (-not ($isAdmin)) {
 Write-Host
 
 #---------------------------------------------------------------
+# Run scripts with elevated privileges
+
+$elevatedCommands = [System.Collections.Generic.List[string]]::new()
+
+function Convert-ToSingleQuotedArgument {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Value
+    )
+
+    # Single-quote escaping for PowerShell literals
+    return "'" + ($Value -replace "'", "''") + "'"
+}
+
+#---------------------------------------------------------------
 # Unlock drive
 
-if (($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") -or ($slaveDriveLetter -ne "" -and $slaveDriveBitlocker -eq "true")) {
+if (
+    ($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") -or 
+    ($slaveDriveLetter -ne "" -and $slaveDriveBitlocker -eq "true")
+) {
+
+    try {
+        $bitLockerScript = (Resolve-Path -LiteralPath $bitLockerScript -ErrorAction Stop).Path
+    }
+    catch {
+        throw "BitLocker script path '$bitLockerScript' is invalid. $($_.Exception.Message)"
+    }
+
+    $bitLockerArgs = [System.Collections.Generic.List[string]]::new()
+
+    if ($masterDriveLetter) { $bitLockerArgs.Add("-MasterDriveLetter " + (Convert-ToSingleQuotedArgument -Value $masterDriveLetter)) }
+    if ($slaveDriveLetter) { $bitLockerArgs.Add("-SlaveDriveLetter " + (Convert-ToSingleQuotedArgument -Value $slaveDriveLetter)) }
+    if ($masterDriveEnvvar) { $bitLockerArgs.Add("-MasterDriveEnvvar " + (Convert-ToSingleQuotedArgument -Value $masterDriveEnvvar)) }
+    if ($slaveDriveEnvvar) { $bitLockerArgs.Add("-SlaveDriveEnvvar " + (Convert-ToSingleQuotedArgument -Value $slaveDriveEnvvar)) }
+
+    $bitLockerInvocation = "& " + (Convert-ToSingleQuotedArgument -Value $bitLockerScript)
+    
+    if ($bitLockerArgs.Count -gt 0) {
+        $bitLockerInvocation += " " + ($bitLockerArgs -join " ")
+    }
+
+    $elevatedCommands.Add($bitLockerInvocation)
+}
+
+#---------------------------------------------------------------
+# Enable network forwarding
+
+if ($enableForwarding -eq "true") {
+
+    $networkForwardingScript = "$($PSScriptRoot)\Enable-NetworkForwarding.ps1"
+
+    try {
+        $networkForwardingScript = (Resolve-Path -LiteralPath $networkForwardingScript -ErrorAction Stop).Path
+    }
+    catch {
+        throw "Network forwarding script path '$networkForwardingScript' is invalid. $($_.Exception.Message)"
+    }
+
+    $elevatedCommands.Add("& " + (Convert-ToSingleQuotedArgument -Value $networkForwardingScript))
+}
+
+#---------------------------------------------------------------
+# If no calls, exit
+
+if ($elevatedCommands.Count -gt 0) { 
 
     Write-Host
-    Write-Host "Unlock master/slave drive" -ForegroundColor Cyan
+    Write-Host "Scripts require elevated privileges and will be executed with admin rights." -ForegroundColor Yellow
     Write-Host "---"
     Write-Host
 
-    $Arguments = @('-File', (Get-XmlNode -Xml $backupConfig -XPath "settings/script/unlockMasterDrive").InnerText)
-
-    if ($MasterDriveLetter -ne '') { $Arguments += @('-MasterDriveLetter', $MasterDriveLetter) }
-    if ($SlaveDriveLetter -ne '') { $Arguments += @('-SlaveDriveLetter', $SlaveDriveLetter) }
-    if ($MasterDriveEnvvar -ne '') { $Arguments += @('-MasterDriveEnvvar', $(Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/envvar").InnerText) }
-    if ($SlaveDriveEnvvar -ne '') { $Arguments += @('-SlaveDriveEnvvar', $(Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/envvar").InnerText) }
+    $cmdLines = [System.Collections.Generic.List[string]]::new()
+    $cmdLines.Add("`$ErrorActionPreference = 'Stop'")
+    $cmdLines.Add("Start-Transcript -Path " + (Convert-ToSingleQuotedArgument -Value $stdoutElevatedLog))
+    $cmdLines.Add("try {")
+    foreach ($elevatedCommand in $elevatedCommands) {
+        $cmdLines.Add("    $elevatedCommand")
+    }
+    $cmdLines.Add("    exit 0")
+    $cmdLines.Add("}")
+    $cmdLines.Add("catch {")
+    $cmdLines.Add("    Write-Error `$_.Exception.Message")
+    $cmdLines.Add("    exit 1")
+    $cmdLines.Add("}")
+    $cmdLines.Add("finally {")
+    $cmdLines.Add("    Stop-Transcript")
+    $cmdLines.Add("}")
 
     $process = Start-Process pwsh `
-        -ArgumentList $Arguments `
+        -Verb RunAs `
         -Wait `
         -PassThru `
-        -RedirectStandardOutput "$($PSScriptRoot)/log/stdout.log" `
-        -RedirectStandardError "$($PSScriptRoot)/log/stderr.log"
+        -ArgumentList @(
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-Command", ($cmdLines -join "`n")
+    )
 
     if ($process.ExitCode -ne 0) {
-        throw "Unlock master/slave drive script process failed with exit code $($process.ExitCode)"
+        throw "Elevated script failed with exit code $($process.ExitCode). Check log: $elevatedLogPath"
     }
 }
 
@@ -261,6 +353,9 @@ if (-not ($master) -and -not ($slave)) { exit }
 #
 #---------------------------------------------------------------
 
+#---------------------------------------------------------------
+# Check root folder
+
 if ( -not (Test-Path -Path $rootfolder) ) {
     throw "Root path not found: $rootfolder"
 }
@@ -268,7 +363,7 @@ if ( -not (Test-Path -Path $rootfolder) ) {
 #---------------------------------------------------------------
 # HyperV Export
 
-if ($IncludeHyperVExport) { 
+if ($IncludeHyperV) { 
 
     if ( -not (Test-Path -Path $hyperVExportPath) ) {
         throw "HyperV Export path not found: $hyperVExportPath"
@@ -294,7 +389,7 @@ if ($IncludeHyperVExport) {
 #---------------------------------------------------------------
 # Wsl Export
 
-if ($IncludeWslExport) { 
+if ($IncludeWsl) { 
 
     if ( -not (Test-Path -Path $wslExportPath) ) {
         throw "WSL Export path not found: $wslExportPath"
@@ -318,43 +413,47 @@ if ($IncludeWslExport) {
 }
 
 #---------------------------------------------------------------
-# Backup dotfiles
-
-if ($IncludeDotfileBackup) {
-
-    Write-Host
-    Write-Host "Dotfile Script" -ForegroundColor Cyan
-    Write-Host "---"
-    Write-Host
-    Write-Host
-
-    $dotfileScript = (Get-XmlNode -Xml $backupConfig -XPath "settings/script/dotfile").InnerText
-
-    $proc = Start-Process pwsh -ArgumentList "$dotfileScript" -Wait -PassThru
-
-    if ($proc.ExitCode -ne 0) {
-        throw "Dotfile script process failed with exit code $($process.ExitCode)"
-    }
-}
-
-#---------------------------------------------------------------
 # Robocopy jobs
 
 foreach ($prop in $backupConfig.settings.robocopy.job) {
 
-    if ([string]::IsNullOrEmpty($prop.source) -or [string]::IsNullOrEmpty($prop.target)) { continue }
+    if (
+        [string]::IsNullOrEmpty($prop.source) -or
+        [string]::IsNullOrEmpty($prop.target) -or
+        (-not $IncludeBackup -and $prop.type -eq "backup") -or
+        (-not $IncludeConfig -and $prop.type -eq "config")
+    ) {
+        continue
+    }
 
     Write-Host
     Write-Host "$($prop.name)" -ForegroundColor Cyan
     Write-Host "---"
     Write-Host
 
-    $answer = if ($IncludeAllRobocopyJobs) { 'yes' } else { Wait-ForInput "Are you sure you want to proceed? [yes/no] (default: yes)" -DefaultValue "yes" -Timeout 10 }
+    robocopy ($prop.options -split " ") $prop.source $prop.target $prop.file
+}
 
-    if ( $IncludeAllRobocopyJobs -or $answer -eq 'yes') {
+#---------------------------------------------------------------
+# Rsync jobs
 
-        robocopy $prop.source $prop.target ($prop.options -split " ")
+foreach ($prop in $dotfileConfig.settings.rsync.job) {
+
+    if (
+        [string]::IsNullOrEmpty($prop.source) -or
+        [string]::IsNullOrEmpty($prop.target) -or
+        (-not $IncludeBackup -and $prop.type -eq "backup") -or
+        (-not $IncludeConfig -and $prop.type -eq "config")
+    ) {
+        continue
     }
+
+    Write-Host ""
+    Write-Host "$($prop.name)" -ForegroundColor Cyan
+    Write-Host "---"
+    Write-Host
+
+    wsl rsync ($prop.options -split " ") $prop.source $prop.target
 }
 
 #---------------------------------------------------------------
