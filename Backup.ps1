@@ -437,7 +437,7 @@ foreach ($prop in $backupConfig.settings.robocopy.job) {
 #---------------------------------------------------------------
 # Rsync jobs
 
-foreach ($prop in $dotfileConfig.settings.rsync.job) {
+foreach ($prop in $backupConfig.settings.rsync.job) {
 
     if (
         [string]::IsNullOrEmpty($prop.source) -or
