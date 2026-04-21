@@ -23,8 +23,9 @@
     ---------------------------------------------------------------
 #>
 
-#---------------------------------------------------------------
-# Params
+#===============================================================
+# PARAMS
+#===============================================================
 
 param(
     [string]$ConfigFile = "",
@@ -35,13 +36,23 @@ param(
     [switch]$SkipTimeline = $false
 )
 
-#---------------------------------------------------------------
-# Get current base directory - Prefer PSScriptRoot when available; fall back to MyInvocation
+#===============================================================
+# ERROR HANDLING AND START
+#===============================================================
+
+$Error.Clear();
+$oldErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Stop"
+
+#===============================================================
+# BASE DIRECTORY (PSSCRIPTROOT PREFERRED)
+#===============================================================
 
 $baseDirectory = $PSScriptRoot
 
-#---------------------------------------------------------------
-# Dot Source required Function Libraries
+#===============================================================
+# DOT SOURCE REQUIRED FUNCTION LIBRARIES
+#===============================================================
 
 . $baseDirectory\library\function\Function_Get-BackupVolumes.ps1
 . $baseDirectory\library\function\Function_Get-XmlNode.ps1
@@ -50,8 +61,9 @@ $baseDirectory = $PSScriptRoot
 . $baseDirectory\library\function\Function_Write-MainHeader.ps1
 . $baseDirectory\library\function\Function_Write-SectionHeader.ps1
 
-#---------------------------------------------------------------
-# Logging setup
+#===============================================================
+# LOGGING SETUP
+#===============================================================
 
 $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
@@ -60,8 +72,9 @@ $stdErrLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_
 $stdoutElevatedLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_elevated_$timestamp.log"
 $stdErrElevatedLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_elevated_$timestamp.log"
 
-#---------------------------------------------------------------
-# Check PowerShell edition
+#===============================================================
+# CHECK POWERSHELL EDITION
+#===============================================================
 
 if ($PSVersionTable.PSEdition -eq 'Core') {
     Write-Output "Running in PowerShell (Core)"
@@ -71,20 +84,15 @@ elseif ($PSVersionTable.PSEdition -eq 'Desktop') {
     Exit 1;
 }
 
-#---------------------------------------------------------------
-# Error handling and start
-
-$Error.Clear();
-$oldErrorActionPreference = $ErrorActionPreference
-$ErrorActionPreference = "Stop"
-
-#---------------------------------------------------------------
-# Main Header
+#===============================================================
+# MAIN HEADER
+#===============================================================
 
 Write-MainHeader -Title "Backup Script" -Subtitle "Version 3.1"
 
-#---------------------------------------------------------------
-# Config
+#===============================================================
+# CONFIG
+#===============================================================
 
 # Resolve config path: use provided -ConfigFile if given; else default
 if ([string]::IsNullOrWhiteSpace($ConfigFile)) {
@@ -115,8 +123,9 @@ catch {
     throw "Failed to load config file '$configPath'. $($_.Exception.Message)"
 }
 
-#---------------------------------------------------------------
-# Init
+#===============================================================
+# INIT
+#===============================================================
 
 $masterDriveLetter = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/letter").InnerText
 $slaveDriveLetter = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/letter").InnerText
@@ -143,8 +152,9 @@ $timelineExcludes = [System.Collections.Generic.List[string]]@('$RECYCLE.BIN', '
 # Reset Error Action Preference
 $ErrorActionPreference = $oldErrorActionPreference
 
-#--------------------------------------------------------------------------
-# Check if script is running as Administrator
+#===============================================================
+# CHECK IF SCRIPT IS RUNNING AS ADMINISTRATOR
+#===============================================================
 
 if (-not (Test-IsAdmin)) {
 
@@ -156,8 +166,9 @@ if (-not (Test-IsAdmin)) {
 
 Write-Host
 
-#---------------------------------------------------------------
-# Run scripts with elevated privileges
+#===============================================================
+# RUN SCRIPTS WITH ELEVATED PRIVILEGES
+#===============================================================
 
 $elevatedCommands = [System.Collections.Generic.List[string]]::new()
 
@@ -172,8 +183,9 @@ function Convert-ToSingleQuotedArgument {
     return "'" + ($Value -replace "'", "''") + "'"
 }
 
-#---------------------------------------------------------------
-# Unlock drive
+#===============================================================
+# UNLOCK DRIVE
+#===============================================================
 
 if (
     ($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") -or 
@@ -203,8 +215,9 @@ if (
     $elevatedCommands.Add($bitLockerInvocation)
 }
 
-#---------------------------------------------------------------
-# Enable network forwarding
+#===============================================================
+# ENABLE NETWORK FORWARDING
+#===============================================================
 
 if ($enableForwarding -eq "true") {
 
@@ -220,8 +233,9 @@ if ($enableForwarding -eq "true") {
     $elevatedCommands.Add("& " + (Convert-ToSingleQuotedArgument -Value $networkForwardingScript))
 }
 
-#---------------------------------------------------------------
-# If no calls, exit
+#===============================================================
+# IF NO CALLS, EXIT
+#===============================================================
 
 if ($elevatedCommands.Count -gt 0) { 
 
@@ -262,8 +276,9 @@ if ($elevatedCommands.Count -gt 0) {
     }
 }
 
-#---------------------------------------------------------------
-# Show drives overview
+#===============================================================
+# SHOW DRIVES OVERVIEW
+#===============================================================
 
 $master = if ($masterDriveLetter) { Get-Volume -DriveLetter $masterDriveLetter -ErrorAction SilentlyContinue } else { $false }
 $slave = if ($slaveDriveLetter) { Get-Volume -DriveLetter $slaveDriveLetter -ErrorAction SilentlyContinue } else { $false }
@@ -284,8 +299,9 @@ if ($drives) {
 
 Write-Host
 
-#---------------------------------------------------------------
-# Pick master drive
+#===============================================================
+# PICK MASTER DRIVE
+#===============================================================
 
 if (-not $master -or $masterDriveDesc -ne $master.FileSystemLabel) {
     
@@ -297,8 +313,9 @@ if (-not $master -or $masterDriveDesc -ne $master.FileSystemLabel) {
     $master = if ($masterDriveLetter) { Get-Volume -DriveLetter $masterDriveLetter -ErrorAction SilentlyContinue } else { $false }
 }
 
-#---------------------------------------------------------------
-# Pick slave drive
+#===============================================================
+# PICK SLAVE DRIVE
+#===============================================================
 
 if (-not $slave -or $slaveDriveDesc -ne $slave.FileSystemLabel) {
 
@@ -310,8 +327,9 @@ if (-not $slave -or $slaveDriveDesc -ne $slave.FileSystemLabel) {
     $slave = if ($slaveDriveLetter) { Get-Volume -DriveLetter $slaveDriveLetter -ErrorAction SilentlyContinue } else { $false }
 }
 
-#---------------------------------------------------------------
-# Check and set target2
+#===============================================================
+# CHECK AND SET TARGET2
+#===============================================================
 
 if ($slave -and $slaveDriveDesc -eq $slave.FileSystemLabel -and (Test-Path -Path "$($slaveDriveLetter):")) {
     $target2 = "$($slaveDriveLetter):\$($env:COMPUTERNAME)\$($env:UserName)\"
@@ -322,8 +340,9 @@ else {
     $slave = ""
 }
 
-#---------------------------------------------------------------
-# Check and set target1
+#===============================================================
+# CHECK AND SET TARGET1
+#===============================================================
 
 if ($master -and $masterDriveDesc -eq $master.FileSystemLabel -and (Test-Path -Path "$($masterDriveLetter):")) {
     $target1 = "$($masterDriveLetter):\$($env:COMPUTERNAME)\$($env:UserName)\"
@@ -340,23 +359,21 @@ Write-Host
 
 if (-not ($master) -and -not ($slave)) { exit }
 
-#---------------------------------------------------------------
-#
-#
-# Start processing
-#
-#
-#---------------------------------------------------------------
+#===============================================================
+# START PROCESSING
+#===============================================================
 
-#---------------------------------------------------------------
-# Check root folder
+#===============================================================
+# CHECK ROOT FOLDER
+#===============================================================
 
 if ( -not (Test-Path -Path $rootfolder) ) {
     throw "Root path not found: $rootfolder"
 }
 
-#---------------------------------------------------------------
-# Timeline folder cleanup
+#===============================================================
+# TIMELINE FOLDER CLEANUP
+#===============================================================
 
 Write-SectionHeader -Title "Timeline Cleanup"
 
@@ -377,8 +394,9 @@ else {
     Write-Host "Timeline skip parameter is active" -ForegroundColor Red
 }
 
-#---------------------------------------------------------------
-# Export HyperV 
+#===============================================================
+# EXPORT HYPERV
+#===============================================================
 
 if ($IncludeHyperV) { 
 
@@ -400,8 +418,9 @@ if ($IncludeHyperV) {
     }
 }
 
-#---------------------------------------------------------------
-# Export WSL
+#===============================================================
+# EXPORT WSL
+#===============================================================
 
 if ($IncludeWsl) { 
 
@@ -423,8 +442,9 @@ if ($IncludeWsl) {
     }
 }
 
-#---------------------------------------------------------------
-# Robocopy jobs
+#===============================================================
+# ROBOCOPY JOBS
+#===============================================================
 
 foreach ($prop in $backupConfig.settings.robocopy.job) {
 
@@ -442,8 +462,9 @@ foreach ($prop in $backupConfig.settings.robocopy.job) {
     robocopy ($prop.options -split " ") $prop.source $prop.target $prop.file
 }
 
-#---------------------------------------------------------------
-# Rsync jobs
+#===============================================================
+# RSYNC JOBS
+#===============================================================
 
 foreach ($prop in $backupConfig.settings.rsync.job) {
 
@@ -461,8 +482,9 @@ foreach ($prop in $backupConfig.settings.rsync.job) {
     wsl rsync ($prop.options -split " ") $prop.source $prop.target
 }
 
-#---------------------------------------------------------------
-# Timeline
+#===============================================================
+# TIMELINE
+#===============================================================
 
 Write-SectionHeader -Title "Timeline Creation"
 
@@ -507,8 +529,9 @@ else {
     Write-Host "Timeline skip parameter is active" -ForegroundColor Red
 }
 
-#---------------------------------------------------------------
-# Backup target1
+#===============================================================
+# BACKUP TARGET 1
+#===============================================================
 
 if ($master -and $masterDriveDesc -eq $master.FileSystemLabel) {
 
@@ -517,8 +540,9 @@ if ($master -and $masterDriveDesc -eq $master.FileSystemLabel) {
     robocopy $rootfolder $target1 /r:0 /ndl /njs /njh /MIR /XD $backupExcludes # /r:0
 }
 
-#---------------------------------------------------------------
-# Backup target2
+#===============================================================
+# BACKUP TARGET 2
+#===============================================================
 
 if ($slave -and $slaveDriveDesc -eq $slave.FileSystemLabel) {
 
