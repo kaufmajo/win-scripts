@@ -404,7 +404,7 @@ if ($IncludeHyperV) {
         throw "HyperV Export path not found: $hyperVExportPath"
     }
 
-    Write-SectionHeader -Title "Export: HyperV" -Color Cyan
+    Write-SectionHeader -Title "Export: HyperV" -Color Yellow
 
     foreach ($prop in $backupConfig.settings.hyperVExport.job) {
 
@@ -428,7 +428,7 @@ if ($IncludeWsl) {
         throw "WSL Export path not found: $wslExportPath"
     }
 
-    Write-SectionHeader -Title "Export: WSL" -Color Cyan
+    Write-SectionHeader -Title "Export: WSL" -Color Yellow
 
     foreach ($prop in $backupConfig.settings.wslExport.job) {
 
@@ -457,7 +457,8 @@ foreach ($prop in $backupConfig.settings.robocopy.job) {
         continue
     }
 
-    Write-SectionHeader -Title "Robocopy: $($prop.name) [$($prop.type)]" -Color Cyan
+    $robocopySectionColor = if ($prop.type -eq "config") { "Blue" } else { "Green" }
+    Write-SectionHeader -Title "Robocopy: $($prop.name) [$($prop.type)]" -Color $robocopySectionColor
 
     robocopy ($prop.options -split " ") $prop.source $prop.target $prop.file
 }
@@ -477,7 +478,8 @@ foreach ($prop in $backupConfig.settings.rsync.job) {
         continue
     }
 
-    Write-SectionHeader -Title "Rsync: $($prop.name) [$($prop.type)]" -Color Cyan
+    $robocopySectionColor = if ($prop.type -eq "config") { "Blue" } else { "Green" }
+    Write-SectionHeader -Title "Rsync: $($prop.name) [$($prop.type)]" -Color $robocopySectionColor
 
     wsl rsync ($prop.options -split " ") $prop.source $prop.target
 }
