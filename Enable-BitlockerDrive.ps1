@@ -124,7 +124,7 @@ try {
             $envVar = [System.Environment]::GetEnvironmentVariable($SlaveDriveEnvvar)
         }
 
-        Write-Host "`nProcessing drive $drive ...`n" -ForegroundColor Cyan
+        Write-SectionHeader -Title "Processing drive $drive" -Color Cyan
 
         if ( [string]::IsNullOrEmpty($drive)) {
             Write-Host "Drive letter variable is empty or unvalid. Skipping..." -ForegroundColor Yellow
@@ -175,6 +175,7 @@ try {
         }
     }
 
+    Write-Host
     Wait-ForInput -Message "Press Enter to continue..." -ForegroundColor Yellow -Timeout 10
 
     exit 0

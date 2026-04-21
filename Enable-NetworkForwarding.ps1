@@ -100,7 +100,9 @@ try {
 
     $alias = $interface.InnerText
 
-    Write-Host "Checking network forwarding: $($alias)" -ForegroundColor Cyan
+    Write-SectionHeader -Title "Checking network forwarding" -Color Cyan
+
+    Write-Host "$($alias)"
 
     $interface = Get-NetIPInterface -InterfaceAlias $alias -AddressFamily IPv4 
 
@@ -109,12 +111,15 @@ try {
       #---------------------------------------------------------------
       # Enable network forwarding
 
-      Write-Host "Enabling network forwarding: $($alias)" -ForegroundColor Yellow
+      Write-SectionHeader -Title "Enabling network forwarding" -Color Yellow
+
+      Write-Host "$($alias)"
     
       Set-NetIPInterface -InterfaceIndex $interface.InterfaceIndex -Forwarding Enabled
     }
   }
 
+  Write-Host
   Wait-ForInput -Message "Press Enter to continue..." -ForegroundColor Yellow -Timeout 10
 
   #---------------------------------------------------------------
