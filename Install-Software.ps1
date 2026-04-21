@@ -1,15 +1,18 @@
 #---------------------------------------------------------------
-# Header
+# Get current base directory - Prefer PSScriptRoot when available; fall back to MyInvocation
 
-Write-Host ">>> Script started at $(Get-Date) <<<"
-Write-Host ""
-Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
-Write-Host "|                                               |            " -ForegroundColor Cyan
-Write-Host "|               Install script                  |            " -ForegroundColor Cyan
-Write-Host "|               Version 2.2                     |            " -ForegroundColor Cyan
-Write-Host "|                                               |            " -ForegroundColor Cyan
-Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
-Write-Host ""
+$baseDirectory = $PSScriptRoot
+
+#---------------------------------------------------------------
+# Dot Source required Function Libraries
+
+. $baseDirectory\library\function\Function_Write-MainHeader.ps1
+. $baseDirectory\library\function\Function_Write-SectionHeader.ps1
+
+#---------------------------------------------------------------
+# Main Header
+
+Write-MainHeader -Title "Install Script" -Subtitle "Version 2.2"
 
 #---------------------------------------------------------------
 # Dot Source required Function Libraries

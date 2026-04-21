@@ -18,6 +18,17 @@ param(
 )
 
 #---------------------------------------------------------------
+# Get current base directory - Prefer PSScriptRoot when available; fall back to MyInvocation
+
+$baseDirectory = $PSScriptRoot
+
+#---------------------------------------------------------------
+# Dot Source required Function Libraries
+
+. $baseDirectory\library\function\Function_Write-MainHeader.ps1
+. $baseDirectory\library\function\Function_Write-SectionHeader.ps1
+
+#---------------------------------------------------------------
 # Logging setup
 
 $timestamp  = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
@@ -33,17 +44,9 @@ $stdErrElevatedLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName
 Start-Transcript -Path $stdoutElevatedLog
 
 #---------------------------------------------------------------
-# Header
+# Main Header
 
-Write-Host ">>> Script started at $(Get-Date) <<<"
-Write-Host
-Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
-Write-Host "|                                               |            " -ForegroundColor Cyan
-Write-Host "|               BitLocker drive script          |            " -ForegroundColor Cyan
-Write-Host "|               Version 2.2                     |            " -ForegroundColor Cyan
-Write-Host "|                                               |            " -ForegroundColor Cyan
-Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
-Write-Host
+Write-MainHeader -Title "BitLocker Drive Script" -Subtitle "Version 2.2"
 
 #---------------------------------------------------------------
 # Env

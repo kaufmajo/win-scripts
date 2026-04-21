@@ -36,6 +36,21 @@ param(
 )
 
 #---------------------------------------------------------------
+# Get current base directory - Prefer PSScriptRoot when available; fall back to MyInvocation
+
+$baseDirectory = $PSScriptRoot
+
+#---------------------------------------------------------------
+# Dot Source required Function Libraries
+
+. $baseDirectory\library\function\Function_Get-BackupVolumes.ps1
+. $baseDirectory\library\function\Function_Get-XmlNode.ps1
+. $baseDirectory\library\function\Function_Test-IsAdmin.ps1
+. $baseDirectory\library\function\Function_Wait-ForInput.ps1
+. $baseDirectory\library\function\Function_Write-MainHeader.ps1
+. $baseDirectory\library\function\Function_Write-SectionHeader.ps1
+
+#---------------------------------------------------------------
 # Logging setup
 
 $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
@@ -64,24 +79,12 @@ $oldErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = "Stop"
 
 #---------------------------------------------------------------
-# Header
+# Main Header
 
-Write-Host ">>> Script started at $(Get-Date) <<<"
-Write-Host
-Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
-Write-Host "|                                               |            " -ForegroundColor Cyan
-Write-Host "|               Backup script                   |            " -ForegroundColor Cyan
-Write-Host "|               Version 3.0                     |            " -ForegroundColor Cyan
-Write-Host "|                                               |            " -ForegroundColor Cyan
-Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
-Write-Host
+Write-MainHeader -Title "Backup Script" -Subtitle "Version 3.1"
 
 #---------------------------------------------------------------
 # Config
-
-# Get current base directory
-# Prefer PSScriptRoot when available; fall back to MyInvocation
-$baseDirectory = $PSScriptRoot
 
 # Resolve config path: use provided -ConfigFile if given; else default
 if ([string]::IsNullOrWhiteSpace($ConfigFile)) {
@@ -111,14 +114,6 @@ try {
 catch {
     throw "Failed to load config file '$configPath'. $($_.Exception.Message)"
 }
-
-#---------------------------------------------------------------
-# Dot Source required Function Libraries
-
-. $baseDirectory\library\function\Function_Get-BackupVolumes.ps1
-. $baseDirectory\library\function\Function_Get-XmlNode.ps1
-. $baseDirectory\library\function\Function_Test-IsAdmin.ps1
-. $baseDirectory\library\function\Function_Wait-ForInput.ps1
 
 #---------------------------------------------------------------
 # Init
@@ -232,7 +227,7 @@ if ($elevatedCommands.Count -gt 0) {
 
     Write-Host
     Write-Host "Scripts require elevated privileges and will be executed with admin rights." -ForegroundColor Yellow
-    Write-Host "---"
+    Write-Host ("-" * 64) -ForegroundColor DarkGray
     Write-Host
 
     $cmdLines = [System.Collections.Generic.List[string]]::new()
@@ -361,7 +356,29 @@ if ( -not (Test-Path -Path $rootfolder) ) {
 }
 
 #---------------------------------------------------------------
-# HyperV Export
+# Timeline folder cleanup
+
+Write-SectionHeader -Title "Timeline Cleanup"
+
+if (!$SkipTimeline) { 
+
+    if ( -not (Test-Path -Path $timelineRoot) ) {
+        throw "Timeline root path not found: $timelineRoot"
+    }
+
+    # Keep only last timeline folders
+    $timelineFolders = Get-ChildItem -Path $timelineRoot -Directory | Sort-Object Name -Descending
+    $timelineFolders | Select-Object -Skip 30 | ForEach-Object {
+        Remove-Item -LiteralPath $_.FullName -Recurse -Force -ProgressAction SilentlyContinue
+        Write-Host "Deleted: $($_.FullName)"
+    }
+}
+else {
+    Write-Host "Timeline skip parameter is active" -ForegroundColor Red
+}
+
+#---------------------------------------------------------------
+# Export HyperV 
 
 if ($IncludeHyperV) { 
 
@@ -369,10 +386,7 @@ if ($IncludeHyperV) {
         throw "HyperV Export path not found: $hyperVExportPath"
     }
 
-    Write-Host
-    Write-Host "HyperV Export for ... " -ForegroundColor Cyan
-    Write-Host "---"
-    Write-Host
+    Write-SectionHeader -Title "Export: HyperV" -Color Cyan
 
     foreach ($prop in $backupConfig.settings.hyperVExport.job) {
 
@@ -387,7 +401,7 @@ if ($IncludeHyperV) {
 }
 
 #---------------------------------------------------------------
-# Wsl Export
+# Export WSL
 
 if ($IncludeWsl) { 
 
@@ -395,10 +409,7 @@ if ($IncludeWsl) {
         throw "WSL Export path not found: $wslExportPath"
     }
 
-    Write-Host
-    Write-Host "WSL Export for ... " -ForegroundColor Cyan
-    Write-Host "---"
-    Write-Host
+    Write-SectionHeader -Title "Export: WSL" -Color Cyan
 
     foreach ($prop in $backupConfig.settings.wslExport.job) {
 
@@ -426,10 +437,7 @@ foreach ($prop in $backupConfig.settings.robocopy.job) {
         continue
     }
 
-    Write-Host
-    Write-Host "$($prop.name)" -ForegroundColor Cyan
-    Write-Host "---"
-    Write-Host
+    Write-SectionHeader -Title "Robocopy: $($prop.name) [$($prop.type)]" -Color Cyan
 
     robocopy ($prop.options -split " ") $prop.source $prop.target $prop.file
 }
@@ -448,10 +456,7 @@ foreach ($prop in $backupConfig.settings.rsync.job) {
         continue
     }
 
-    Write-Host ""
-    Write-Host "$($prop.name)" -ForegroundColor Cyan
-    Write-Host "---"
-    Write-Host
+    Write-SectionHeader -Title "Rsync: $($prop.name) [$($prop.type)]" -Color Cyan
 
     wsl rsync ($prop.options -split " ") $prop.source $prop.target
 }
@@ -459,25 +464,13 @@ foreach ($prop in $backupConfig.settings.rsync.job) {
 #---------------------------------------------------------------
 # Timeline
 
-Write-Host
-Write-Host "Timeline" -ForegroundColor Cyan
-Write-Host "---"
-Write-Host
+Write-SectionHeader -Title "Timeline Creation"
 
 if (!$SkipTimeline) { 
 
     if ( -not (Test-Path -Path $timelineRoot) ) {
         throw "Timeline root path not found: $timelineRoot"
     }
-
-    # Keep only last timeline folders
-    $timelineFolders = Get-ChildItem -Path $timelineRoot -Directory | Sort-Object Name -Descending
-    $timelineFolders | Select-Object -Skip 30 | ForEach-Object {
-        Remove-Item -LiteralPath $_.FullName -Recurse -Force -ProgressAction SilentlyContinue
-        Write-Host "Deleted: $($_.FullName)" -ForegroundColor Yellow
-    }
-
-    Write-Host
 
     # Timeline subfolder and diff file
     $timelineDir = $timelineRoot + "$((Get-Date).ToString('yyyy-MM-dd_HH_mm_ss'))\"
@@ -519,10 +512,7 @@ else {
 
 if ($master -and $masterDriveDesc -eq $master.FileSystemLabel) {
 
-    Write-Host
-    Write-Host "Robocopy to $($target1)" -ForegroundColor Cyan
-    Write-Host "---"
-    Write-Host
+    Write-SectionHeader -Title "Backup to $($target1)" -Color Magenta
 
     robocopy $rootfolder $target1 /r:0 /ndl /njs /njh /MIR /XD $backupExcludes # /r:0
 }
@@ -532,10 +522,7 @@ if ($master -and $masterDriveDesc -eq $master.FileSystemLabel) {
 
 if ($slave -and $slaveDriveDesc -eq $slave.FileSystemLabel) {
 
-    Write-Host
-    Write-Host "Robocopy to $($target2)" -ForegroundColor Cyan
-    Write-Host "---"
-    Write-Host
+    Write-SectionHeader -Title "Backup to $($target2)" -Color Magenta
 
     robocopy $rootfolder $target2 /r:0 /ndl /njs /njh /MIR /XD $backupExcludes # /r:0
 }

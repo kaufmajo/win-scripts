@@ -14,22 +14,6 @@
 #>
 
 #---------------------------------------------------------------
-# Header
-
-Write-Host ">>> Script started at $(Get-Date) <<<"
-Write-Host
-Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
-Write-Host "|                                               |            " -ForegroundColor Cyan
-Write-Host "|               Setup Ssh access script         |            " -ForegroundColor Cyan
-Write-Host "|               Version 2.2                     |            " -ForegroundColor Cyan
-Write-Host "|                                               |            " -ForegroundColor Cyan
-Write-Host " -----------------------------------------------             " -ForegroundColor Cyan
-Write-Host
-
-Write-Host " >>> Please run similar script on wsl to setup ssh access from wsl  <<<" -ForegroundColor Red
-Write-Host 
-
-#---------------------------------------------------------------
 # Config
 
 # Get current working directory
@@ -43,6 +27,16 @@ $baseDirectory = split-path $MyInvocation.MyCommand.Path
 
 . $baseDirectory\library\function\Function_Get-XmlNode.ps1
 . $baseDirectory\library\function\Function_Test-IsAdmin.ps1
+. $baseDirectory\library\function\Function_Write-MainHeader.ps1
+. $baseDirectory\library\function\Function_Write-SectionHeader.ps1
+
+#---------------------------------------------------------------
+# Main Header
+
+Write-MainHeader -Title "Setup Ssh Access Script" -Subtitle "Version 2.2"
+
+Write-Host " >>> Please run similar script on wsl to setup ssh access from wsl  <<<" -ForegroundColor Red
+Write-Host 
 
 #--------------------------------------------------------------------------
 # Check if script is running as Administrator
