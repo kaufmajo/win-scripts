@@ -1,0 +1,30 @@
+{
+    "caseboard.f.root": "wt --window 0 -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\caseboard",
+    "caseboard.s.root": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\caseboard",
+    "caseboard.s.scripts": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\caseboard\\CaseboardApi\\logs",
+    "caseboard.s.copilot": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\caseboard -c copilot",
+    "caseboard.s.docker-172-23-3-25-sysadmin": "split-pane -V \"ssh-172.23.3.25-sysadmin (dockerhub)\"",
+    "caseboard.vs": "c:\\Program Files\\Microsoft Visual Studio\\18\\Professional\\Common7\\IDE\\devenv.exe C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\caseboard\\CaseBoard.sln",
+
+    "iot.f.root": "wt --window 0 -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\iot",
+    "iot.s.root": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\iot",
+    "iot.vsc.arduino": "code C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\iot\\xiao_soil_sensor\\arduino",
+    "iot.vsc.plattformio": "code C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\iot\\xiao_soil_sensor\\plattformio",
+
+    "raspberrypi.f.root": "wt --window 0 -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\raspberrypi",
+    "raspberrypi.s.root": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\raspberrypi",
+    "raspberrypi.s.copilot": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\raspberrypi -c copilot",
+    "raspberrypi.s.docker-172-23-3-25-sysadmin": "split-pane -p \"Developer PowerShell for VS 18\" ssh raspi@172.23.3.109",
+    "raspberrypi.vsc": "code C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\raspberrypi",
+    
+    "smartfarming.f.root": "wt --window 0 -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming",
+    "smartfarming.s.root": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming",
+    "smartfarming.s.scripts": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming\\SmartFarmingScripts",
+    "smartfarming.s.copilot": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming -c copilot",
+    "smartfarming.s.docker-172-23-3-25-sysadmin": "split-pane -p \"Developer PowerShell for VS 18\" \"ssh-172.23.3.25-sysadmin (dockerhub)\"",
+    "smartfarming.s.docker-172-23-3-45-sysadmin": "split-pane -p \"Developer PowerShell for VS 18\" \"ssh-172.23.3.45-sysadmin (dockerhub)\"",
+    "smartfarming.vs": "c:\\Program Files\\Microsoft Visual Studio\\18\\Professional\\Common7\\IDE\\devenv.exe C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming\\SmartFarming.sln",
+    
+    "skripte.f.root": "wt --window 0 -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\skripte",
+    "skripte.vsc": "code C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\skripte"
+}
