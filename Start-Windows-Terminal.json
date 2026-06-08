@@ -11,11 +11,11 @@
     "iot.vsc.arduino": "code C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\iot\\xiao_soil_sensor\\arduino",
     "iot.vsc.plattformio": "code C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\iot\\xiao_soil_sensor\\plattformio",
 
-    "raspberrypi.f.root": "wt --window 0 -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\raspberrypi",
-    "raspberrypi.s.root": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\raspberrypi",
-    "raspberrypi.s.copilot": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\raspberrypi -c copilot",
+    "raspberrypi.f.root": "wt --window 0 -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming\\raspberrypi\\v2",
+    "raspberrypi.s.root": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming\\raspberrypi\\v2",
+    "raspberrypi.s.copilot": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming\\raspberrypi\\v2 -c copilot",
     "raspberrypi.s.ssh-172-23-3-109-raspi": "split-pane -p \"Developer PowerShell for VS 18\" ssh raspi@172.23.3.109",
-    "raspberrypi.vsc": "code C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\raspberrypi",
+    "raspberrypi.vsc": "code C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming\\raspberrypi\\v2",
     
     "smartfarming.f.root": "wt --window 0 -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming",
     "smartfarming.s.root": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming",
