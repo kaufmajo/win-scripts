@@ -6,10 +6,10 @@
     "caseboard.s.docker-172-23-3-25-sysadmin": "split-pane -V \"ssh-172.23.3.25-sysadmin (dockerhub)\"",
     "caseboard.vs": "c:\\Program Files\\Microsoft Visual Studio\\18\\Professional\\Common7\\IDE\\devenv.exe C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\caseboard\\CaseBoard.sln",
 
-    "iot.f.root": "wt --window 0 -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\iot",
-    "iot.s.root": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\iot",
-    "iot.vsc.arduino": "code C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\iot\\xiao_soil_sensor\\arduino",
-    "iot.vsc.plattformio": "code C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\iot\\xiao_soil_sensor\\plattformio",
+    "iot.f.root": "wt --window 0 -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming\\firmware\\XIAO_ESP32_C6",
+    "iot.s.root": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming\\firmware\\XIAO_ESP32_C6",
+    "iot.vsc.arduino": "code C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming\\firmware\\XIAO_ESP32_C6\\arduino",
+    "iot.vsc.plattformio": "code C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming\\firmware\\XIAO_ESP32_C6\\ESPIDF",
 
     "raspberrypi.f.root": "wt --window 0 -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming\\raspberrypi\\v2",
     "raspberrypi.s.root": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming\\raspberrypi\\v2",
