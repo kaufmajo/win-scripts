@@ -14,7 +14,7 @@
     "raspberrypi.f.root": "wt --window 0 -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\raspberrypi",
     "raspberrypi.s.root": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\raspberrypi",
     "raspberrypi.s.copilot": "split-pane -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\raspberrypi -c copilot",
-    "raspberrypi.s.docker-172-23-3-25-sysadmin": "split-pane -p \"Developer PowerShell for VS 18\" ssh raspi@172.23.3.109",
+    "raspberrypi.s.ssh-172-23-3-109-raspi": "split-pane -p \"Developer PowerShell for VS 18\" ssh raspi@172.23.3.109",
     "raspberrypi.vsc": "code C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\raspberrypi",
     
     "smartfarming.f.root": "wt --window 0 -p \"Developer PowerShell for VS 18\" -d C:\\Users\\joachim.kaufmann\\Joachim\\Devpool\\App\\sps\\core\\smartfarming",
