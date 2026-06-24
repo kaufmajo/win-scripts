@@ -3,7 +3,7 @@
 # ----------------------------------------------------------
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$jsonPath = Join-Path -Path $scriptDir -ChildPath 'Start-Terminal.json'
+$jsonPath = Join-Path -Path $scriptDir -ChildPath 'config/start-terminal.json'
 
 $pattern = ''
 $selectedIndex = 0

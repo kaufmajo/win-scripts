@@ -19,6 +19,7 @@ config/*
 
 !config/*.sample.env
 !config/*.sample.xml
+!config/*.sample.json
 
 # ------------
 # Note
