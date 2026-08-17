@@ -31,6 +31,7 @@ $winget = [ordered]@{
     Thunderbird                          = 'winget install --id Mozilla.Thunderbird -e'
     DeltaChat                            = 'winget install --id=DeltaChat.DeltaChat -e'
     Total_Commander                      = 'winget install --id Ghisler.TotalCommander -e'
+    Azure_Storage_Explorer               = 'winget install --id=Microsoft.Azure.StorageExplorer -e'
     VLC                                  = 'winget install --id=VideoLAN.VLC  -e'
     Git                                  = 'winget install --id=Git.Git -e'
     GithubCli                            = 'winget install --id GitHub.cli -e'
