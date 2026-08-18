@@ -35,6 +35,7 @@ $winget = [ordered]@{
     VLC                                  = 'winget install --id=VideoLAN.VLC  -e'
     Git                                  = 'winget install --id=Git.Git -e'
     GithubCli                            = 'winget install --id GitHub.cli -e'
+    AzureCli                             = 'winget install --id Microsoft.AzureCLI -e'
     # Nmap                                 = 'winget install --id=Insecure.Nmap -e'
     Python                               = 'winget install --id=Python.Python.3.13 -e'
     NodeJs                               = 'winget install --id=OpenJS.NodeJS.LTS -e'
