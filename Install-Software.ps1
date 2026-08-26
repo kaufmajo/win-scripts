@@ -43,6 +43,7 @@ $winget = [ordered]@{
     OhMyPosh_Styles_for_Windows_Terminal = 'winget install --id=JanDeDobbeleer.OhMyPosh -e'
     DBeaver                              = 'winget install --id DBeaver.DBeaver.Community -e'
     HeidiSQL                             = 'winget install --id=HeidiSQL.HeidiSQL -e'
+    # MySQL_Workbench                      = 'winget install -e --id Oracle.MySQLWorkbench'
     Firefox                              = 'winget install --id Mozilla.Firefox -e'
     Chrome                               = 'winget install --id=Google.Chrome -e'
     Brave                                = 'winget install --id=Brave.Brave -e'
