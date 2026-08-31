@@ -1,0 +1,9 @@
+.env
+
+# But not the .gitignore file itself
+!.gitignore
+!.gitkeep
+
+# Do ignore these files and directories [staging-area]
+dump_and_restore_area/*
+!dump_and_restore_area/.gitkeep
