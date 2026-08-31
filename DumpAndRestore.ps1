@@ -1,5 +1,5 @@
 #------------------------------------------
-# Script to dump a MySQL/MariaDB database from one environment and restore it to another.
+# Script to dump a MySQL database from one environment and restore it to another.
 # Database connection details are read from a single .env file using environment-prefixed variables.
 #
 # .env file format:

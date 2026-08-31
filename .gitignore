@@ -17,9 +17,10 @@ config/*
 # ------------
 # exclude
 
-!config/*.sample.env*
-!config/*.sample.xml*
-!config/*.sample.json*
+!config/.env.sample
+!config/.env.*.sample
+!config/*.sample.xml
+!config/*.sample.json
 
 # ------------
 # Note
