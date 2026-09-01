@@ -21,7 +21,7 @@
 #   .\DumpAndRestore.ps1 -EnvFile ".env"
 
 param (
-    [string]$EnvFile = "./config/.env__dump_and_restore"
+    [string]$EnvFile = "./config/.env.dump_and_restore"
 )
 
 #------------------------------------------
