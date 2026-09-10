@@ -148,11 +148,6 @@ function Invoke-SelectedCommand {
 
     $trimmedCommand = $Command.Trim()
 
-    if ($trimmedCommand -match '^\s*(split-pane)\b') {
-        Start-Process -FilePath 'wt' -ArgumentList "--window 0 $trimmedCommand"
-        return 0
-    }
-
     if ($trimmedCommand -match '^(?:"(?<QuotedExecutable>[a-zA-Z]:\\[^"]+?\.exe)"|(?<Executable>[a-zA-Z]:\\.*?\.exe))(?<Arguments>\s+.*)?$') {
         $executable = $Matches.QuotedExecutable
         if ([string]::IsNullOrWhiteSpace($executable)) {
