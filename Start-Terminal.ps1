@@ -43,7 +43,7 @@ if ($commands.Count -eq 0) {
 function ConvertTo-FlexibleRegexPattern {
     param([string]$Pattern)
 
-    return ($Pattern.Trim() -replace '[\s.]+', '.*')
+    return ($Pattern.Trim() -replace '[.]+', '.*')
 }
 
 function Get-MatchingCommandItems {
@@ -59,13 +59,21 @@ function Get-MatchingCommandItems {
         }
     }
 
-    $flexiblePattern = ConvertTo-FlexibleRegexPattern -Pattern $Pattern
+    # Each whitespace-separated term is matched independently, so terms can
+    # appear in any order (e.g. "term1 term2" matches "term2 term1" too).
+    $terms = @($Pattern.Trim() -split '\s+' | Where-Object { $_.Length -gt 0 })
+    $flexiblePatterns = @($terms | ForEach-Object { ConvertTo-FlexibleRegexPattern -Pattern $_ })
 
     try {
-        [regex]::new($flexiblePattern) | Out-Null
+        foreach ($flexiblePattern in $flexiblePatterns) {
+            [regex]::new($flexiblePattern) | Out-Null
+        }
 
         return [pscustomobject]@{
-            Items = @($Items | Where-Object { $_.Key -match $flexiblePattern })
+            Items = @($Items | Where-Object {
+                $key = $_.Key
+                -not ($flexiblePatterns | Where-Object { $key -notmatch $_ })
+            })
             Error = $null
         }
     }
@@ -87,7 +95,7 @@ function Show-CommandMenu {
 
     Clear-Host
     Write-Host 'Windows Terminal commands' -ForegroundColor Cyan
-    Write-Host 'Type a regex to filter. Spaces and dots match anything between parts. Use Up/Down to choose, Enter to run, Esc to exit.'
+    Write-Host 'Type a regex to filter. Separate multiple terms with spaces (order does not matter); dots match anything within a term. Use Up/Down to choose, Enter to run, Esc to exit.'
     Write-Host ''
 
     Write-Host -NoNewline 'Regex: '
