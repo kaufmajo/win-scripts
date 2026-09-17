@@ -62,17 +62,6 @@ $baseDirectory = $PSScriptRoot
 . $baseDirectory\library\function\Function_Write-SectionHeader.ps1
 
 #===============================================================
-# LOGGING SETUP
-#===============================================================
-
-$timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$stdoutLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_$timestamp.log"
-$stdErrLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_$timestamp.log"
-$stdoutElevatedLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_elevated_$timestamp.log"
-$stdErrElevatedLog = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_elevated_$timestamp.log"
-
-#===============================================================
 # CHECK POWERSHELL EDITION
 #===============================================================
 
@@ -246,7 +235,7 @@ if ($elevatedCommands.Count -gt 0) {
 
     $cmdLines = [System.Collections.Generic.List[string]]::new()
     $cmdLines.Add("`$ErrorActionPreference = 'Stop'")
-    $cmdLines.Add("Start-Transcript -Path " + (Convert-ToSingleQuotedArgument -Value $stdoutElevatedLog))
+    $cmdLines.Add(". " + (Convert-ToSingleQuotedArgument -Value "$baseDirectory\library\function\Function_Wait-ForInput.ps1"))
     $cmdLines.Add("try {")
     foreach ($elevatedCommand in $elevatedCommands) {
         $cmdLines.Add("    $elevatedCommand")
@@ -255,10 +244,9 @@ if ($elevatedCommands.Count -gt 0) {
     $cmdLines.Add("}")
     $cmdLines.Add("catch {")
     $cmdLines.Add("    Write-Error `$_.Exception.Message")
+    $cmdLines.Add("    Write-Host")
+    $cmdLines.Add("    Wait-ForInput -Message 'An error occurred. Press Enter to continue...' -ForegroundColor Red -Timeout 30")
     $cmdLines.Add("    exit 1")
-    $cmdLines.Add("}")
-    $cmdLines.Add("finally {")
-    $cmdLines.Add("    Stop-Transcript")
     $cmdLines.Add("}")
 
     $process = Start-Process pwsh `
@@ -272,7 +260,7 @@ if ($elevatedCommands.Count -gt 0) {
     )
 
     if ($process.ExitCode -ne 0) {
-        throw "Elevated script failed with exit code $($process.ExitCode). Check log: $elevatedLogPath"
+        throw "Elevated script failed with exit code $($process.ExitCode)."
     }
 }
 

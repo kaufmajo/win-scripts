@@ -29,21 +29,6 @@ $baseDirectory = $PSScriptRoot
 . $baseDirectory\library\function\Function_Write-SectionHeader.ps1
 
 #---------------------------------------------------------------
-# Logging setup
-
-$timestamp  = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$stdoutLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_$timestamp.log"
-$stdErrLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_$timestamp.log"
-$stdoutElevatedLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stdout_elevated_$timestamp.log"
-$stdErrElevatedLog  = Join-Path -Path $PSScriptRoot -ChildPath "log/${scriptName}_stderr_elevated_$timestamp.log"
-
-#---------------------------------------------------------------
-# Start logging
-
-Start-Transcript -Path $stdoutElevatedLog
-
-#---------------------------------------------------------------
 # Main Header
 
 Write-MainHeader -Title "BitLocker Drive Script" -Subtitle "Version 2.2"
@@ -183,9 +168,7 @@ try {
 catch {
     
     Write-Error $_
+    Write-Host
+    Wait-ForInput -Message "An error occurred. Press Enter to continue..." -ForegroundColor Red -Timeout 30
     exit 1 # make sure the elevated process returns non-zero
-}
-finally {
-    
-    Stop-Transcript
 }
