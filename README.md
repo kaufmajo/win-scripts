@@ -28,9 +28,18 @@ In the paths below, `~` means your user profile directory, usually `C:\Users\<us
 
 ## Backup.ps1
 
-Reads [config/backup.xml](config/backup.xml) and mirrors the configured root folder
-to the available master and slave backup drives. Timeline snapshots are enabled
-by default.
+Reads [config/backup.xml](config/backup.xml) and mirrors the Windows root folder
+to the available master and slave backup drives. Files inside WSL are backed up
+by `backup.sh` from the [linux-scripts](https://github.com/kaufmajo/linux-scripts)
+repository; start it afterwards with `-WithLinux`. The other way round,
+`backup.sh --with-windows` starts this script afterwards.
+
+Layout on each backup drive (`targetFolder` is `win` in the default config):
+
+```text
+X:\<COMPUTERNAME>\<targetFolder>\<USERNAME>\            mirror
+X:\<COMPUTERNAME>\<targetFolder>\<USERNAME>.history\    history: old versions of changed and deleted files
+```
 
 **Run with the default configuration:**
 
@@ -38,39 +47,45 @@ by default.
 .\Backup.ps1
 ```
 
-**Include the extra backup and configuration jobs:**
+**Run the WSL backup afterwards:**
 
 ```powershell
-.\Backup.ps1 -IncludeBackup -IncludeConfig
+.\Backup.ps1 -WithLinux
 ```
 
-**Choose another configuration and skip timeline processing:**
+**Choose another configuration and skip the history:**
 
 ```powershell
-.\Backup.ps1 -ConfigFile '.\config\backup.xml' -SkipTimeline
+.\Backup.ps1 -ConfigFile '.\config\backup.xml' -SkipHistory
 ```
 
 | Option | Effect |
 | --- | --- |
 | `-ConfigFile <path>` | Use another XML configuration file. |
-| `-IncludeBackup` | Include configured jobs with type `backup`. |
-| `-IncludeConfig` | Include configured jobs with type `config`. |
-| `-IncludeHyperV` | Export the configured Hyper-V virtual machines. |
-| `-IncludeWsl` | Export the configured WSL distributions. |
-| `-SkipTimeline` | Skip both timeline cleanup and snapshot creation. |
+| `-ExportHyperV` | Export the configured Hyper-V virtual machines. |
+| `-ExportWsl` | Export the configured WSL distributions to `<name>.tar`. |
+| `-SkipHistory` | Do not move old versions to the history folder. |
+| `-WithLinux` | Run the WSL backup script (`<linux>` in the XML) afterwards. |
 
 **Before running:**
 
 - Check source paths, destination drive letters, and volume labels in the XML.
-  The main drive mirrors run even without `-IncludeBackup`.
-- Mirroring uses `robocopy /MIR`, which can delete destination files that no
-  longer exist in the source.
-- Timeline cleanup keeps the 30 newest existing folders before creating the next
-  snapshot. Hyper-V and WSL export steps clear their configured export folders
-  before each job; use dedicated export folders.
-- Hyper-V exports require the Hyper-V tools and appropriate permissions. Rsync
-  jobs require WSL with `rsync`. Configured BitLocker and network setup steps
-  request administrator access.
+- Config files outside the root folder (`<config>` paths) are copied into
+  `configFolder` first, keeping the full path
+  (`C:\Users\me\.gitconfig` becomes `___Config\C\Users\me\.gitconfig`). The
+  folder is rebuilt on every run, so it must be a subfolder of the root folder
+  and not contain anything else. Nothing is ever copied back.
+- Mirroring uses `robocopy /MIR`, which deletes destination files that no longer
+  exist in the source. Before that, their old versions are moved to the history
+  folder. The newest `historyKeep` history folders are kept per drive.
+- BitLocker drives are unlocked only when they are locked; this asks for
+  administrator access (UAC).
+- If a configured drive is not found, the script asks for its drive letter and
+  continues without that drive after 10 seconds without input.
+- Hyper-V exports require the Hyper-V tools and appropriate permissions. Each
+  export replaces only the previous export of the same VM or distribution.
+- Run `-ExportWsl` from Windows, not via `backup.sh --with-windows`: it would
+  export the distribution the calling script is running in.
 
 ## Deploy-AiInstructions.ps1
 

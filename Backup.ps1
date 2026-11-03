@@ -1,24 +1,27 @@
 <#
     ---------------------------------------------------------------
 
-    https://superuser.com/questions/748069/how-do-i-compare-two-folders-recursively-and-generate-a-list-of-files-and-folder
+    Backup.ps1 - Mirror the Windows root folder to the master and slave backup drives.
+
+    - Backs up Windows files only. The WSL filesystem is backed up by
+      linux_scripts/backup.sh (start it afterwards with -WithLinux).
+
+    - History: before mirroring, the old version of every file that robocopy
+      will overwrite or delete is moved to the history folder on the backup drive.
+
+    Layout on each backup drive:
+
+        X:\<COMPUTERNAME>\<targetFolder>\<USERNAME>\           mirror
+        X:\<COMPUTERNAME>\<targetFolder>\<USERNAME>.history\   history (newest <historyKeep> runs)
 
     ---------------------------------------------------------------
 
+    If robocopy marks a copied directory with the System+Hidden attribute,
+    make it visible again with:
+
+        attrib -R -S X:\MyBackup /S /D
+
     https://stackoverflow.com/questions/6584402/after-robocopy-the-copied-directory-and-files-are-not-visible-on-the-destinatio
-
-    Just ran into this issue myself, so it may be a late response and you may have worked it out already, but for those stumbling on this page here's my solution...
-
-    The problem is that for whatever reason, Robocopy has marked the directory with the System Attribute of hidden, making it invisible in the directory structure, unless you enable the viewing of system files.
-
-    The easiest way to resolve this is through the command line.
-
-        Open a command prompt and change the focus to the drive in question (e.g. x:)
-        Then use the command dir /A:S to display all directories with the System attribute set.
-        Locate your directory name and then enter the command ATTRIB -R -S x:\MyBackup /S /D where x:\ is the drive letter and MyBackup is your directory name.
-        The /S re-curses subfolders and /D processes folders as well.
-
-    This should clear the Read Only and System attributes on all directories and files, allowing you to view the directory normally.
 
     ---------------------------------------------------------------
 #>
@@ -29,11 +32,10 @@
 
 param(
     [string]$ConfigFile = "",
-    [switch]$IncludeBackup = $false,
-    [switch]$IncludeConfig = $false,
-    [switch]$IncludeHyperV = $false,
-    [switch]$IncludeWsl = $false,
-    [switch]$SkipTimeline = $false
+    [switch]$ExportHyperV = $false,
+    [switch]$ExportWsl = $false,
+    [switch]$SkipHistory = $false,
+    [switch]$WithLinux = $false
 )
 
 #===============================================================
@@ -41,7 +43,6 @@ param(
 #===============================================================
 
 $Error.Clear();
-$oldErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = "Stop"
 
 #===============================================================
@@ -56,7 +57,6 @@ $baseDirectory = $PSScriptRoot
 
 . $baseDirectory\library\function\Function_Get-BackupVolumes.ps1
 . $baseDirectory\library\function\Function_Get-XmlNode.ps1
-. $baseDirectory\library\function\Function_Test-IsAdmin.ps1
 . $baseDirectory\library\function\Function_Wait-ForInput.ps1
 . $baseDirectory\library\function\Function_Write-MainHeader.ps1
 . $baseDirectory\library\function\Function_Write-SectionHeader.ps1
@@ -77,7 +77,7 @@ elseif ($PSVersionTable.PSEdition -eq 'Desktop') {
 # MAIN HEADER
 #===============================================================
 
-Write-MainHeader -Title "Backup Script" -Subtitle "Version 3.1"
+Write-MainHeader -Title "Backup Script" -Subtitle "Version 0.7.3"
 
 #===============================================================
 # CONFIG
@@ -104,7 +104,6 @@ if (-not (Test-Path -LiteralPath $configPath)) {
 
 Write-Host "Using config file: $configPath" -ForegroundColor Cyan
 
-# Get config values
 try {
     [xml]$backupConfig = Get-Content -LiteralPath $configPath -ErrorAction Stop
 }
@@ -117,150 +116,206 @@ catch {
 #===============================================================
 
 $masterDriveLetter = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/letter").InnerText
-$slaveDriveLetter = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/letter").InnerText
-$masterDriveDesc = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/description").InnerText
-$slaveDriveDesc = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/description").InnerText
+$masterDriveLabel = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/label").InnerText
 $masterDriveBitlocker = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/bitlocker").InnerText
+$masterDriveEnvvar = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/envvar").InnerText
+#
+$slaveDriveLetter = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/letter").InnerText
+$slaveDriveLabel = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/label").InnerText
 $slaveDriveBitlocker = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/bitlocker").InnerText
-# 
+$slaveDriveEnvvar = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/envvar").InnerText
+#
 $rootfolder = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/rootfolder").InnerText
-$timelineRoot = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/timelineFolder").InnerText
+$targetFolder = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/targetFolder").InnerText
+$configFolder = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/configFolder").InnerText.TrimEnd('\')
 $wslExportPath = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/wslExportFolder").InnerText
 $hyperVExportPath = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/hyperVExportFolder").InnerText
 $hyperVPoolPath = (Get-XmlNode -Xml $backupConfig -XPath "settings/folder/hyperVPoolFolder").InnerText
-# 
-$enableForwarding = (Get-XmlNode -Xml $backupConfig -XPath "settings/enableNetworkForwarding").InnerText
-$bitLockerScript = (Get-XmlNode -Xml $backupConfig -XPath "settings/script/unlockMasterDrive").InnerText
-$masterDriveEnvvar = (Get-XmlNode -Xml $backupConfig -XPath "settings/masterdrive/envvar").InnerText
-$slaveDriveEnvvar = (Get-XmlNode -Xml $backupConfig -XPath "settings/slavedrive/envvar").InnerText
+#
+$historyKeep = [int](Get-XmlNode -Xml $backupConfig -XPath "settings/historyKeep").InnerText
+$bitLockerScript = (Get-XmlNode -Xml $backupConfig -XPath "settings/script/unlockDrive").InnerText
+$linuxDistribution = (Get-XmlNode -Xml $backupConfig -XPath "settings/linux/distribution").InnerText
+$linuxScript = (Get-XmlNode -Xml $backupConfig -XPath "settings/linux/script").InnerText
+$configPaths = @($backupConfig.settings.config.path)
 
-# Backup excludes
-$backupExcludes = [System.Collections.Generic.List[string]]@('$RECYCLE.BIN', 'System Volume Information', $timelineRoot, $hyperVPoolPath)
-$timelineExcludes = [System.Collections.Generic.List[string]]@('$RECYCLE.BIN', 'System Volume Information', $timelineRoot, $hyperVPoolPath, $hyperVExportPath, $wslExportPath)
+# Excluded from the mirror
+$backupExcludes = @('$RECYCLE.BIN', 'System Volume Information', $hyperVPoolPath)
 
-# Reset Error Action Preference
-$ErrorActionPreference = $oldErrorActionPreference
+# Excluded from the history in addition (big export files, only the latest is kept)
+$historyExcludes = $backupExcludes + @($hyperVExportPath, $wslExportPath)
 
-#===============================================================
-# CHECK IF SCRIPT IS RUNNING AS ADMINISTRATOR
-#===============================================================
+# Robocopy source without trailing backslash ("C:\path\" would escape the closing quote)
+$source = $rootfolder.TrimEnd('\')
 
-if (-not (Test-IsAdmin)) {
-
-    Write-Host
-    Write-Host "If script must run with administrator privileges: " -ForegroundColor Yellow
-    Write-Host "sudo pwsh -executionpolicy remotesigned -File $($MyInvocation.MyCommand.Definition)" -ForegroundColor Yellow  # https://learn.microsoft.com/en-us/dotnet/api/system.management.automation.invocationinfo?view=powershellsdk-7.4.0
-    Write-Host
+# The config folder is emptied and rebuilt on every run: it must be a subfolder
+# of the root folder (so it is mirrored) and never the root folder itself.
+if (-not $configFolder.StartsWith("$source\", [StringComparison]::OrdinalIgnoreCase)) {
+    throw "configFolder must be a subfolder of rootfolder: $configFolder"
 }
 
-Write-Host
+$failed = $false
 
 #===============================================================
-# RUN SCRIPTS WITH ELEVATED PRIVILEGES
+# FUNCTIONS
 #===============================================================
 
-$elevatedCommands = [System.Collections.Generic.List[string]]::new()
-
-function Convert-ToSingleQuotedArgument {
+# Returns 'Ready' (label matches), 'NotReady' (locked BitLocker drive or
+# wrong label) or 'Missing'. Works without administrator rights.
+function Get-DriveState {
     param(
-        [Parameter(Mandatory = $true)]
-        [AllowEmptyString()]
-        [string]$Value
+        [string]$Letter,
+        [string]$Label
     )
 
-    # Single-quote escaping for PowerShell literals
-    return "'" + ($Value -replace "'", "''") + "'"
+    if ([string]::IsNullOrWhiteSpace($Letter)) { return 'Missing' }
+
+    $volume = Get-Volume -DriveLetter $Letter -ErrorAction SilentlyContinue
+
+    if (-not $volume) { return 'Missing' }
+    if ($volume.FileSystemLabel -eq $Label) { return 'Ready' }
+
+    return 'NotReady'
+}
+
+# Copies each path (file or folder) to $ConfigFolder, keeping the full source
+# path, like "rsync --relative":
+#   C:\Users\me\.gitconfig  ->  <ConfigFolder>\C\Users\me\.gitconfig
+# Returns the number of failed copies.
+function Copy-ConfigFiles {
+    param(
+        [string]$ConfigFolder,
+        [string[]]$Paths
+    )
+
+    $failures = 0
+
+    foreach ($path in $Paths) {
+
+        if ([string]::IsNullOrWhiteSpace($path)) { continue }
+
+        $path = $path.TrimEnd('\')
+
+        # "C:\Users\me" -> "C\Users\me" (drive letter becomes a folder)
+        $relative = ($path -replace '^([A-Za-z]):', '$1').TrimStart('\')
+        $target = Join-Path $ConfigFolder $relative
+
+        # "| Out-Host" shows robocopy's output; without it, the output would
+        # become the return value of this function.
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
+            robocopy (Split-Path $path) (Split-Path $target) (Split-Path $path -Leaf) /R:0 /NS /NC /NDL /NP /NJH /NJS | Out-Host
+        }
+        elseif (Test-Path -LiteralPath $path -PathType Container) {
+            robocopy $path $target /E /R:0 /NS /NC /NDL /NP /NJH /NJS | Out-Host
+        }
+        else {
+            Write-Host "Config path not found, skipped: $path" -ForegroundColor Yellow
+            continue
+        }
+
+        if ($LASTEXITCODE -ge 8) {
+            Write-Host "Robocopy failed with exit code $($LASTEXITCODE): $path" -ForegroundColor Red
+            $failures++
+        }
+    }
+
+    return $failures
+}
+
+# Moves the old version of every file that "robocopy /MIR" would overwrite or
+# delete in $Target to $HistoryDir (same relative path). Returns the file count.
+function Move-ToHistory {
+    param(
+        [string]$Source,
+        [string]$Target,
+        [string]$HistoryDir,
+        [string[]]$Excludes
+    )
+
+    if (-not (Test-Path -LiteralPath $Target)) { return 0 }
+
+    # /L only lists what /MIR would do, one full path per line:
+    #   source path -> new or changed file (overwrites the target file, if any)
+    #   target path -> extra file (will be deleted)
+    $lines = robocopy $Source $Target /L /MIR /FP /NS /NC /NDL /NP /NJH /NJS /XD $Excludes
+
+    if ($LASTEXITCODE -ge 8) {
+        throw "robocopy /L failed with exit code $LASTEXITCODE."
+    }
+
+    $sourcePrefix = "$Source\"
+    $targetPrefix = "$Target\"
+    $count = 0
+
+    foreach ($line in $lines) {
+
+        $path = $line.Trim()
+
+        # Skip empty lines and directories (they end with a backslash)
+        if ($path -eq '' -or $path.EndsWith('\')) { continue }
+
+        if ($path.StartsWith($targetPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            # Extra file: will be deleted
+            $relative = $path.Substring($targetPrefix.Length)
+        }
+        elseif ($path.StartsWith($sourcePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            # New or changed file: only an existing target file has an old version
+            $relative = $path.Substring($sourcePrefix.Length)
+            if (-not (Test-Path -LiteralPath (Join-Path $Target $relative) -PathType Leaf)) { continue }
+        }
+        else {
+            continue
+        }
+
+        $oldFile = Join-Path $Target $relative
+        $historyFile = Join-Path $HistoryDir $relative
+
+        try {
+            New-Item -ItemType Directory -Path (Split-Path $historyFile) -Force | Out-Null
+            Move-Item -LiteralPath $oldFile -Destination $historyFile -Force
+            Write-Host "History: $relative"
+            $count++
+        }
+        catch {
+            Write-Host "Could not move to history: $oldFile. $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
+
+    return $count
 }
 
 #===============================================================
-# UNLOCK DRIVE
+# UNLOCK DRIVES (ONLY IF NEEDED)
 #===============================================================
 
-if (
-    ($masterDriveLetter -ne "" -and $masterDriveBitlocker -eq "true") -or 
-    ($slaveDriveLetter -ne "" -and $slaveDriveBitlocker -eq "true")
-) {
+# Enable-BitlockerDrive.ps1 elevates itself (UAC prompt), so it is only
+# called for drives that are present but not ready (= locked).
+
+$unlockArgs = @{}
+
+if ($masterDriveBitlocker -eq "true" -and (Get-DriveState $masterDriveLetter $masterDriveLabel) -eq 'NotReady') {
+    $unlockArgs.MasterDriveLetter = $masterDriveLetter
+    $unlockArgs.MasterDriveEnvvar = $masterDriveEnvvar
+}
+
+if ($slaveDriveBitlocker -eq "true" -and (Get-DriveState $slaveDriveLetter $slaveDriveLabel) -eq 'NotReady') {
+    $unlockArgs.SlaveDriveLetter = $slaveDriveLetter
+    $unlockArgs.SlaveDriveEnvvar = $slaveDriveEnvvar
+}
+
+if ($unlockArgs.Count -gt 0) {
+
+    Write-SectionHeader -Title "Unlock BitLocker drives" -Color Yellow
 
     try {
         $bitLockerScript = (Resolve-Path -LiteralPath $bitLockerScript -ErrorAction Stop).Path
+        & $bitLockerScript @unlockArgs
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Unlock script failed with exit code $LASTEXITCODE." -ForegroundColor Red
+        }
     }
     catch {
-        throw "BitLocker script path '$bitLockerScript' is invalid. $($_.Exception.Message)"
-    }
-
-    $bitLockerArgs = [System.Collections.Generic.List[string]]::new()
-
-    if ($masterDriveLetter) { $bitLockerArgs.Add("-MasterDriveLetter " + (Convert-ToSingleQuotedArgument -Value $masterDriveLetter)) }
-    if ($slaveDriveLetter) { $bitLockerArgs.Add("-SlaveDriveLetter " + (Convert-ToSingleQuotedArgument -Value $slaveDriveLetter)) }
-    if ($masterDriveEnvvar) { $bitLockerArgs.Add("-MasterDriveEnvvar " + (Convert-ToSingleQuotedArgument -Value $masterDriveEnvvar)) }
-    if ($slaveDriveEnvvar) { $bitLockerArgs.Add("-SlaveDriveEnvvar " + (Convert-ToSingleQuotedArgument -Value $slaveDriveEnvvar)) }
-
-    $bitLockerInvocation = "& " + (Convert-ToSingleQuotedArgument -Value $bitLockerScript)
-    
-    if ($bitLockerArgs.Count -gt 0) {
-        $bitLockerInvocation += " " + ($bitLockerArgs -join " ")
-    }
-
-    $elevatedCommands.Add($bitLockerInvocation)
-}
-
-#===============================================================
-# ENABLE NETWORK FORWARDING
-#===============================================================
-
-if ($enableForwarding -eq "true") {
-
-    $networkForwardingScript = "$($PSScriptRoot)\Enable-NetworkForwarding.ps1"
-
-    try {
-        $networkForwardingScript = (Resolve-Path -LiteralPath $networkForwardingScript -ErrorAction Stop).Path
-    }
-    catch {
-        throw "Network forwarding script path '$networkForwardingScript' is invalid. $($_.Exception.Message)"
-    }
-
-    $elevatedCommands.Add("& " + (Convert-ToSingleQuotedArgument -Value $networkForwardingScript))
-}
-
-#===============================================================
-# IF NO CALLS, EXIT
-#===============================================================
-
-if ($elevatedCommands.Count -gt 0) { 
-
-    Write-Host
-    Write-Host "Scripts require elevated privileges and will be executed with admin rights." -ForegroundColor Yellow
-    Write-Host ("-" * 64) -ForegroundColor DarkGray
-    Write-Host
-
-    $cmdLines = [System.Collections.Generic.List[string]]::new()
-    $cmdLines.Add("`$ErrorActionPreference = 'Stop'")
-    $cmdLines.Add(". " + (Convert-ToSingleQuotedArgument -Value "$baseDirectory\library\function\Function_Wait-ForInput.ps1"))
-    $cmdLines.Add("try {")
-    foreach ($elevatedCommand in $elevatedCommands) {
-        $cmdLines.Add("    $elevatedCommand")
-    }
-    $cmdLines.Add("    exit 0")
-    $cmdLines.Add("}")
-    $cmdLines.Add("catch {")
-    $cmdLines.Add("    Write-Error `$_.Exception.Message")
-    $cmdLines.Add("    Write-Host")
-    $cmdLines.Add("    Wait-ForInput -Message 'An error occurred. Press Enter to continue...' -ForegroundColor Red -Timeout 30")
-    $cmdLines.Add("    exit 1")
-    $cmdLines.Add("}")
-
-    $process = Start-Process pwsh `
-        -Verb RunAs `
-        -Wait `
-        -PassThru `
-        -ArgumentList @(
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-Command", ($cmdLines -join "`n")
-    )
-
-    if ($process.ExitCode -ne 0) {
-        throw "Elevated script failed with exit code $($process.ExitCode)."
+        Write-Host "Unlock failed. $($_.Exception.Message)" -ForegroundColor Red
     }
 }
 
@@ -268,88 +323,61 @@ if ($elevatedCommands.Count -gt 0) {
 # SHOW DRIVES OVERVIEW
 #===============================================================
 
-$master = if ($masterDriveLetter) { Get-Volume -DriveLetter $masterDriveLetter -ErrorAction SilentlyContinue } else { $false }
-$slave = if ($slaveDriveLetter) { Get-Volume -DriveLetter $slaveDriveLetter -ErrorAction SilentlyContinue } else { $false }
+Write-SectionHeader -Title "Drives"
+
 $drives = Get-BackupVolumes
 
 if ($drives) {
-        
-    Write-Host "Letter Description Selected"
+
+    Write-Host "Letter Label       Selected"
     Write-Host "______ ___________ ________"
-        
+
     $drives | ForEach-Object {
         Write-Host ("{0}" -f $_.DriveLetter).PadRight(7) -NoNewline
         Write-Host ("{0}" -f $_.FileSystemLabel).PadRight(12) -NoNewline
-        if ($master -and $_.DriveLetter -eq $master.DriveLetter -and $_.FileSystemLabel -eq $masterDriveDesc) { Write-Host "Master" -NoNewline -ForegroundColor Green } else { Write-Host -NoNewline }
-        if ($slave -and $_.DriveLetter -eq $slave.DriveLetter -and $_.FileSystemLabel -eq $slaveDriveDesc) { Write-Host "Slave" -ForegroundColor Green } else { Write-Host }
-    }    
+        if ($_.DriveLetter -eq $masterDriveLetter -and $_.FileSystemLabel -eq $masterDriveLabel) { Write-Host "Master" -ForegroundColor Green }
+        elseif ($_.DriveLetter -eq $slaveDriveLetter -and $_.FileSystemLabel -eq $slaveDriveLabel) { Write-Host "Slave" -ForegroundColor Green }
+        else { Write-Host }
+    }
 }
 
 Write-Host
 
 #===============================================================
-# PICK MASTER DRIVE
+# PICK DRIVES AND SET TARGETS
 #===============================================================
 
-if (-not $master -or $masterDriveDesc -ne $master.FileSystemLabel) {
-    
-    Write-Host "Enter " -NoNewline
-    Write-Host "master " -NoNewline -ForegroundColor Yellow
-    Write-Host "drive letter: " -NoNewline
-    $masterDriveLetter = Wait-ForInput
+$targets = [System.Collections.Generic.List[string]]::new()
 
-    $master = if ($masterDriveLetter) { Get-Volume -DriveLetter $masterDriveLetter -ErrorAction SilentlyContinue } else { $false }
+$driveConfigs = @(
+    @{ Role = 'master'; Letter = $masterDriveLetter; Label = $masterDriveLabel },
+    @{ Role = 'slave'; Letter = $slaveDriveLetter; Label = $slaveDriveLabel }
+)
+
+foreach ($drive in $driveConfigs) {
+
+    $letter = $drive.Letter
+
+    if ((Get-DriveState $letter $drive.Label) -ne 'Ready') {
+        Write-Host "Enter " -NoNewline
+        Write-Host "$($drive.Role) " -NoNewline -ForegroundColor Yellow
+        Write-Host "drive letter: " -NoNewline
+        $letter = Wait-ForInput
+    }
+
+    if ((Get-DriveState $letter $drive.Label) -eq 'Ready') {
+        $target = "$($letter):\$($env:COMPUTERNAME)\$targetFolder\$($env:UserName)"
+        Write-Host "$($drive.Role): $target\" -ForegroundColor Green
+        $targets.Add($target)
+    }
+    else {
+        Write-Host "No valid $($drive.Role) drive given, or drive is locked." -ForegroundColor Red
+    }
 }
-
-#===============================================================
-# PICK SLAVE DRIVE
-#===============================================================
-
-if (-not $slave -or $slaveDriveDesc -ne $slave.FileSystemLabel) {
-
-    Write-Host "Enter " -NoNewline
-    Write-Host "slave " -NoNewline -ForegroundColor Yellow
-    Write-Host "drive letter: " -NoNewline
-    $slaveDriveLetter = Wait-ForInput
-
-    $slave = if ($slaveDriveLetter) { Get-Volume -DriveLetter $slaveDriveLetter -ErrorAction SilentlyContinue } else { $false }
-}
-
-#===============================================================
-# CHECK AND SET TARGET2
-#===============================================================
-
-if ($slave -and $slaveDriveDesc -eq $slave.FileSystemLabel -and (Test-Path -Path "$($slaveDriveLetter):")) {
-    $target2 = "$($slaveDriveLetter):\$($env:COMPUTERNAME)\$($env:UserName)\"
-    $target3 = $target2
-}
-else {
-    Write-Host "No valid slave drive given, or drive is locked." -ForegroundColor Red
-    $slave = ""
-}
-
-#===============================================================
-# CHECK AND SET TARGET1
-#===============================================================
-
-if ($master -and $masterDriveDesc -eq $master.FileSystemLabel -and (Test-Path -Path "$($masterDriveLetter):")) {
-    $target1 = "$($masterDriveLetter):\$($env:COMPUTERNAME)\$($env:UserName)\"
-    $target3 = $target1
-}
-else {
-    Write-Host "No valid master drive given, or drive is locked." -ForegroundColor Red
-    $master = ""
-}
-
-#---------------------------------------------------------------
 
 Write-Host
 
-if (-not ($master) -and -not ($slave)) { exit }
-
-#===============================================================
-# START PROCESSING
-#===============================================================
+if ($targets.Count -eq 0) { exit 1 }
 
 #===============================================================
 # CHECK ROOT FOLDER
@@ -359,50 +387,40 @@ if ( -not (Test-Path -Path $rootfolder) ) {
     throw "Root path not found: $rootfolder"
 }
 
-#===============================================================
-# TIMELINE FOLDER CLEANUP
-#===============================================================
-
-Write-SectionHeader -Title "Timeline Cleanup"
-
-if (!$SkipTimeline) { 
-
-    if ( -not (Test-Path -Path $timelineRoot) ) {
-        throw "Timeline root path not found: $timelineRoot"
-    }
-
-    # Keep only last timeline folders
-    $timelineFolders = Get-ChildItem -Path $timelineRoot -Directory | Sort-Object Name -Descending
-    $timelineFolders | Select-Object -Skip 30 | ForEach-Object {
-        Remove-Item -LiteralPath $_.FullName -Recurse -Force -ProgressAction SilentlyContinue
-        Write-Host "Deleted: $($_.FullName)"
-    }
-}
-else {
-    Write-Host "Timeline skip parameter is active" -ForegroundColor Red
-}
+# From here on, single failures are reported, the script continues
+$ErrorActionPreference = "Continue"
 
 #===============================================================
 # EXPORT HYPERV
 #===============================================================
 
-if ($IncludeHyperV) { 
+if ($ExportHyperV) {
+
+    Write-SectionHeader -Title "Export: HyperV" -Color Yellow
 
     if ( -not (Test-Path -Path $hyperVExportPath) ) {
         throw "HyperV Export path not found: $hyperVExportPath"
     }
 
-    Write-SectionHeader -Title "Export: HyperV" -Color Yellow
+    foreach ($job in $backupConfig.settings.hyperVExport.job) {
 
-    foreach ($prop in $backupConfig.settings.hyperVExport.job) {
+        if ([string]::IsNullOrEmpty($job.name)) { continue }
 
-        if ($prop.name -eq "") { continue }
+        Write-Host "... $($job.name)"
 
-        Write-Host "... $($prop.name)"
+        try {
+            # Export-VM creates <path>\<vm name>\ - remove only the previous export of this VM
+            $vmExportPath = Join-Path $hyperVExportPath $job.name
+            if (Test-Path -LiteralPath $vmExportPath) {
+                Remove-Item -LiteralPath $vmExportPath -Recurse -Force -ErrorAction Stop
+            }
 
-        Remove-Item $hyperVExportPath\* -Recurse
-
-        Export-VM -Name $prop.name -Path $hyperVExportPath
+            Export-VM -Name $job.name -Path $hyperVExportPath -ErrorAction Stop
+        }
+        catch {
+            Write-Host "HyperV export of '$($job.name)' failed. $($_.Exception.Message)" -ForegroundColor Red
+            $failed = $true
+        }
     }
 }
 
@@ -410,139 +428,136 @@ if ($IncludeHyperV) {
 # EXPORT WSL
 #===============================================================
 
-if ($IncludeWsl) { 
+if ($ExportWsl) {
+
+    Write-SectionHeader -Title "Export: WSL" -Color Yellow
 
     if ( -not (Test-Path -Path $wslExportPath) ) {
         throw "WSL Export path not found: $wslExportPath"
     }
 
-    Write-SectionHeader -Title "Export: WSL" -Color Yellow
+    foreach ($job in $backupConfig.settings.wslExport.job) {
 
-    foreach ($prop in $backupConfig.settings.wslExport.job) {
+        if ([string]::IsNullOrEmpty($job.name)) { continue }
 
-        if ($prop.name -eq "") { continue }
+        Write-Host "... $($job.name)"
 
-        Write-Host "... $($prop.name)"
+        # One file per distribution: <name>.tar
+        $tarFile = Join-Path $wslExportPath "$($job.name).tar"
 
-        Remove-Item $wslExportPath\* -Recurse
-
-        wsl --export $prop.name $wslExportPath\debian.tar
-    }
-}
-
-#===============================================================
-# ROBOCOPY JOBS
-#===============================================================
-
-foreach ($prop in $backupConfig.settings.robocopy.job) {
-
-    if (
-        [string]::IsNullOrEmpty($prop.source) -or
-        [string]::IsNullOrEmpty($prop.target) -or
-        (-not $IncludeBackup -and $prop.type -eq "backup") -or
-        (-not $IncludeConfig -and $prop.type -eq "config")
-    ) {
-        continue
-    }
-
-    $robocopySectionColor = if ($prop.type -eq "config") { "Blue" } else { "Green" }
-    Write-SectionHeader -Title "Robocopy: $($prop.name) [$($prop.type)]" -Color $robocopySectionColor
-
-    robocopy ($prop.options -split " ") $prop.source $prop.target $prop.file
-}
-
-#===============================================================
-# RSYNC JOBS
-#===============================================================
-
-foreach ($prop in $backupConfig.settings.rsync.job) {
-
-    if (
-        [string]::IsNullOrEmpty($prop.source) -or
-        [string]::IsNullOrEmpty($prop.target) -or
-        (-not $IncludeBackup -and $prop.type -eq "backup") -or
-        (-not $IncludeConfig -and $prop.type -eq "config")
-    ) {
-        continue
-    }
-
-    $robocopySectionColor = if ($prop.type -eq "config") { "Blue" } else { "Green" }
-    Write-SectionHeader -Title "Rsync: $($prop.name) [$($prop.type)]" -Color $robocopySectionColor
-
-    wsl rsync ($prop.options -split " ") $prop.source $prop.target
-}
-
-#===============================================================
-# TIMELINE
-#===============================================================
-
-Write-SectionHeader -Title "Timeline Creation"
-
-if (!$SkipTimeline) { 
-
-    if ( -not (Test-Path -Path $timelineRoot) ) {
-        throw "Timeline root path not found: $timelineRoot"
-    }
-
-    # Timeline subfolder and diff file
-    $timelineDir = $timelineRoot + "$((Get-Date).ToString('yyyy-MM-dd_HH_mm_ss'))\"
-    $timelineDiff = $timelineDir + "diff.txt"
-
-    # Create timeline subfolder
-    if (-not (Test-Path -Path $timelineDir)) {
-        New-Item -ItemType Directory -Path $timelineDir | Out-Null
-    }
-
-    # Create diff file
-    robocopy $rootfolder $target3 /l /s /xo /fp /ns /nc /ndl /np /njh /njs /XD $timelineExcludes /unilog:"$($timelineDiff)" | Out-Null
-
-    # Read diff file and copy files to timeline subfolder
-    Get-Content $timelineDiff | Where-Object { $_ -match '^\s+|\s+$' } | ForEach-Object {
-    
-        $versionCopyFileSrc = $_.Trim()
-        
-        # copy deleted files
-        if ($versionCopyFileSrc.StartsWith($target3)) {
-        
-            $versionCopyFileDst = [IO.Path]::GetDirectoryName($versionCopyFileSrc.Replace($target3, $timelineDir)) + "\"
-            xcopy $versionCopyFileSrc $versionCopyFileDst
+        if (Test-Path -LiteralPath $tarFile) {
+            Remove-Item -LiteralPath $tarFile -Force
         }
-        # copy new or changed files
-        else {
-        
-            $versionCopyFileDst = [IO.Path]::GetDirectoryName($versionCopyFileSrc.Replace($rootfolder, $timelineDir)) + "\"
-            xcopy $versionCopyFileSrc $versionCopyFileDst
+
+        wsl.exe --export $job.name $tarFile
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "WSL export of '$($job.name)' failed with exit code $LASTEXITCODE." -ForegroundColor Red
+            $failed = $true
         }
     }
 }
-else {
-    Write-Host "Timeline skip parameter is active" -ForegroundColor Red
+
+#===============================================================
+# CONFIG FILES (always, before the mirror, so the copies get backed up)
+#===============================================================
+
+# The folder is rebuilt from scratch, so it always contains exactly the
+# configured paths. Robocopy keeps the timestamps: unchanged files look
+# identical to the mirror and create no history.
+
+Write-SectionHeader -Title "Config files: $configFolder\" -Color Blue
+
+if (Test-Path -LiteralPath $configFolder) {
+    Remove-Item -LiteralPath $configFolder -Recurse -Force
+}
+
+if ((Copy-ConfigFiles -ConfigFolder $configFolder -Paths $configPaths) -gt 0) {
+    $failed = $true
 }
 
 #===============================================================
-# BACKUP TARGET 1
+# HISTORY AND BACKUP PER TARGET
 #===============================================================
 
-if ($master -and $masterDriveDesc -eq $master.FileSystemLabel) {
+$timestamp = Get-Date -Format 'yyyy-MM-dd_HH_mm_ss'
 
-    Write-SectionHeader -Title "Backup to $($target1)" -Color Magenta
+foreach ($target in $targets) {
 
-    robocopy $rootfolder $target1 /r:0 /ndl /njs /njh /MIR /XD $backupExcludes # /r:0
+    $historyRoot = "$target.history"
+
+    #---------------------------------------------------------------
+    # Move old versions to history
+
+    if (-not $SkipHistory) {
+
+        Write-SectionHeader -Title "History: $historyRoot\$timestamp\"
+
+        try {
+            $moved = Move-ToHistory -Source $source -Target $target -HistoryDir "$historyRoot\$timestamp" -Excludes $historyExcludes
+            Write-Host "Moved to history: $moved file(s)" -ForegroundColor Cyan
+        }
+        catch {
+            Write-Host "History failed. $($_.Exception.Message)" -ForegroundColor Red
+            $failed = $true
+        }
+    }
+    else {
+        Write-Host "History: skipped (-SkipHistory)" -ForegroundColor Yellow
+    }
+
+    #---------------------------------------------------------------
+    # Mirror
+
+    Write-SectionHeader -Title "Backup to $target\" -Color Magenta
+
+    robocopy $source $target /r:0 /ndl /njs /njh /MIR /XD $backupExcludes
+
+    if ($LASTEXITCODE -ge 8) {
+        Write-Host "Robocopy failed with exit code $LASTEXITCODE." -ForegroundColor Red
+        $failed = $true
+    }
+
+    #---------------------------------------------------------------
+    # Keep only the newest history folders (names are timestamps)
+
+    if (-not $SkipHistory -and (Test-Path -LiteralPath $historyRoot)) {
+
+        Get-ChildItem -LiteralPath $historyRoot -Directory |
+        Sort-Object Name -Descending |
+        Select-Object -Skip $historyKeep |
+        ForEach-Object {
+            Remove-Item -LiteralPath $_.FullName -Recurse -Force -ProgressAction SilentlyContinue
+            Write-Host "Deleted history: $($_.FullName)"
+        }
+    }
 }
 
 #===============================================================
-# BACKUP TARGET 2
+# LINUX BACKUP (WSL)
 #===============================================================
 
-if ($slave -and $slaveDriveDesc -eq $slave.FileSystemLabel) {
+if ($WithLinux) {
 
-    Write-SectionHeader -Title "Backup to $($target2)" -Color Magenta
+    Write-SectionHeader -Title "Linux backup: $linuxDistribution" -Color Yellow
 
-    robocopy $rootfolder $target2 /r:0 /ndl /njs /njh /MIR /XD $backupExcludes # /r:0
+    wsl.exe -d $linuxDistribution -- $linuxScript
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Linux backup failed with exit code $LASTEXITCODE." -ForegroundColor Red
+        $failed = $true
+    }
 }
 
 #---------------------------------------------------------------
 
 Write-Host
+
+if ($failed) {
+    Write-Host "Backup finished with errors." -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Backup finished." -ForegroundColor Green
 
 #---------------------------------------------------------------

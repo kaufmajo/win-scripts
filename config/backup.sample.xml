@@ -1,89 +1,77 @@
+<!--
+  Config for Backup.ps1 - copy to backup.xml and adjust.
+  Counterpart: linux_scripts/config/backup.conf (same drive settings).
+-->
 <settings>
-  <enableNetworkForwarding>true</enableNetworkForwarding>
+
+  <!-- Backup drives
+       letter     Windows drive letter
+       label      Volume label (safety check: the drive is only used if it matches)
+       bitlocker  true: unlock with <unlockDrive> if the drive is locked
+       envvar     Name of the variable holding the BitLocker password (read by <unlockDrive>) -->
 
   <masterdrive>
-    <letter>x</letter>
-    <description>masterdrive</description>
+    <letter>X</letter>
+    <label>masterdrive</label>
     <bitlocker>true</bitlocker>
     <envvar>master_password_env</envvar>
   </masterdrive>
 
   <slavedrive>
-    <letter>y</letter>
-    <description>slavedrive</description>
+    <letter>Y</letter>
+    <label>slavedrive</label>
     <bitlocker>true</bitlocker>
     <envvar>slave_password_env</envvar>
   </slavedrive>
 
+  <!-- Folders
+       rootfolder          Folder to back up
+       targetFolder        Mirror goes to X:\<COMPUTERNAME>\<targetFolder>\<USERNAME>\
+       configFolder        Copies of the <config> paths (rebuilt on every run, must be inside rootfolder)
+       wslExportFolder     Target of -ExportWsl
+       hyperVPoolFolder    Hyper-V VM files, excluded from the mirror
+       hyperVExportFolder  Target of -ExportHyperV -->
+
   <folder>
-    <rootfolder>c:\path\to\root</rootfolder>
-    <timelineFolder>c:\path\to\timeline</timelineFolder>
-    <wslExportFolder>c:\path\to\wsl</wslExportFolder>
-    <hyperVPoolFolder>c:\path\to\hyperv\pool</hyperVPoolFolder>
-    <hyperVExportFolder>c:\path\to\hyperv\export</hyperVExportFolder>
+    <rootfolder>C:\path\to\root\</rootfolder>
+    <targetFolder>win</targetFolder>
+    <configFolder>C:\path\to\root\___Config\</configFolder>
+    <wslExportFolder>C:\path\to\root\wsl-export\</wslExportFolder>
+    <hyperVPoolFolder>C:\path\to\root\hyperv-pool\</hyperVPoolFolder>
+    <hyperVExportFolder>C:\path\to\root\hyperv-export\</hyperVExportFolder>
   </folder>
 
+  <!-- Number of history folders kept per backup drive -->
+  <historyKeep>30</historyKeep>
+
+  <!-- Script that unlocks BitLocker drives -->
   <script>
-    <unlockMasterDrive>c:\path\to\script.ps1</unlockMasterDrive>
+    <unlockDrive>C:\path\to\win_scripts\Enable-BitlockerDrive.ps1</unlockDrive>
   </script>
 
-  <robocopy>
-    <job>
-      <type>backup</type>
-      <name>backup_job</name>
-      <source>source_path</source>
-      <target>target_path</target>
-      <file></file>
-      <options>robocopy_options</options>
-    </job>
-    <job>
-      <type>backup</type>
-      <name>backup_job</name>
-      <source>source_path</source>
-      <target>target_path</target>
-      <file></file>
-      <options>robocopy_options</options>
-    </job>
-    <job>
-      <type>config</type>
-      <name>config_job</name>
-      <source>source_path</source>
-      <target>target_path</target>
-      <file>filename</file>
-      <options>robocopy_options</options>
-    </job>
-  </robocopy>
+  <!-- WSL backup, started with -WithLinux -->
+  <linux>
+    <distribution>Debian</distribution>
+    <script>/home/user/path/to/linux_scripts/backup.sh</script>
+  </linux>
 
-  <rsync>
-    <job>
-      <type>config</type>
-      <name>sync_job</name>
-      <source>user@host:/path</source>
-      <target>/path/to/target</target>
-      <options>rsync_options</options>
-    </job>
-    <job>
-      <type>config</type>
-      <name>sync_job</name>
-      <source>user@host:/path</source>
-      <target>/path/to/target</target>
-      <options>rsync_options</options>
-    </job>
-  </rsync>
+  <!-- Config files outside rootfolder, copied to <configFolder> on every backup.
+       The full path is kept: C:\Users\me\.gitconfig -> <configFolder>\C\Users\me\.gitconfig
+       A path can be a file or a folder. -->
+  <config>
+    <path>C:\Users\username\.gitconfig</path>
+    <path>C:\Users\username\AppData\Local\nvim</path>
+  </config>
 
+  <!-- WSL distributions, exported with -ExportWsl to <wslExportFolder>\<name>.tar -->
   <wslExport>
     <job>
-      <name>distro_name</name>
-    </job>
-    <job>
-      <name>distro_name</name>
+      <name>Debian</name>
     </job>
   </wslExport>
 
+  <!-- Hyper-V VMs, exported with -ExportHyperV to <hyperVExportFolder>\<name>\ -->
   <hyperVExport>
-    <job>
-      <name>vm_name</name>
-    </job>
     <job>
       <name>vm_name</name>
     </job>
