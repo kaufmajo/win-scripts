@@ -3,15 +3,14 @@ function Write-SectionHeader {
         [Parameter(Mandatory = $true)]
         [string]$Title,
 
-        [ConsoleColor]$Color = [ConsoleColor]::Cyan,
+        [ConsoleColor]$Color = [ConsoleColor]::DarkGray,
 
         [ValidateRange(24, 120)]
         [int]$Width = 64
     )
 
-    $text = "[ $Title ]"
-    $lineLength = [Math]::Max($text.Length + 2, $Width)
-    $line = ("=" * $lineLength)
+    $text = $Title
+    $line = ("=" * $Width)
 
     Write-Host
     Write-Host $line -ForegroundColor DarkGray

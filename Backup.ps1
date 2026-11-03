@@ -69,7 +69,7 @@ if ($PSVersionTable.PSEdition -eq 'Core') {
     Write-Output "Running in PowerShell (Core)"
 }
 elseif ($PSVersionTable.PSEdition -eq 'Desktop') {
-    Write-Output "Running in Windows PowerShell. Please use PowerShell (Core) instead."
+    Write-Output "Running in Windows PowerShell. Please use PowerShell (Core) instead"
     Exit 1;
 }
 
@@ -77,7 +77,7 @@ elseif ($PSVersionTable.PSEdition -eq 'Desktop') {
 # MAIN HEADER
 #===============================================================
 
-Write-MainHeader -Title "Backup Script" -Subtitle "Version 0.7.3"
+Write-MainHeader -Title "Backup Script (Win)" -Subtitle "Version 0.7.4"
 
 #===============================================================
 # CONFIG
@@ -102,7 +102,7 @@ if (-not (Test-Path -LiteralPath $configPath)) {
     throw "Config file not found at: $configPath"
 }
 
-Write-Host "Using config file: $configPath" -ForegroundColor Cyan
+Write-Host "Using config file $configPath"
 
 try {
     [xml]$backupConfig = Get-Content -LiteralPath $configPath -ErrorAction Stop
@@ -239,7 +239,7 @@ function Move-ToHistory {
     $lines = robocopy $Source $Target /L /MIR /FP /NS /NC /NDL /NP /NJH /NJS /XD $Excludes
 
     if ($LASTEXITCODE -ge 8) {
-        throw "robocopy /L failed with exit code $LASTEXITCODE."
+        throw "robocopy /L failed with exit code $LASTEXITCODE"
     }
 
     $sourcePrefix = "$Source\"
@@ -304,14 +304,14 @@ if ($slaveDriveBitlocker -eq "true" -and (Get-DriveState $slaveDriveLetter $slav
 
 if ($unlockArgs.Count -gt 0) {
 
-    Write-SectionHeader -Title "Unlock BitLocker drives" -Color Yellow
+    Write-SectionHeader -Title "Unlock BitLocker drives"
 
     try {
         $bitLockerScript = (Resolve-Path -LiteralPath $bitLockerScript -ErrorAction Stop).Path
         & $bitLockerScript @unlockArgs
 
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "Unlock script failed with exit code $LASTEXITCODE." -ForegroundColor Red
+            Write-Host "Unlock script failed with exit code $LASTEXITCODE" -ForegroundColor Red
         }
     }
     catch {
@@ -367,11 +367,12 @@ foreach ($drive in $driveConfigs) {
 
     if ((Get-DriveState $letter $drive.Label) -eq 'Ready') {
         $target = "$($letter):\$($env:COMPUTERNAME)\$targetFolder\$($env:UserName)"
-        Write-Host "$($drive.Role): $target\" -ForegroundColor Green
+        $roleName = $drive.Role.Substring(0, 1).ToUpper() + $drive.Role.Substring(1)
+        Write-Host "$roleName is $target\" -ForegroundColor Green
         $targets.Add($target)
     }
     else {
-        Write-Host "No valid $($drive.Role) drive given, or drive is locked." -ForegroundColor Red
+        Write-Host "No valid $($drive.Role) drive given, or drive is locked" -ForegroundColor Yellow
     }
 }
 
@@ -396,7 +397,7 @@ $ErrorActionPreference = "Continue"
 
 if ($ExportHyperV) {
 
-    Write-SectionHeader -Title "Export: HyperV" -Color Yellow
+    Write-SectionHeader -Title "Export: HyperV"
 
     if ( -not (Test-Path -Path $hyperVExportPath) ) {
         throw "HyperV Export path not found: $hyperVExportPath"
@@ -430,7 +431,7 @@ if ($ExportHyperV) {
 
 if ($ExportWsl) {
 
-    Write-SectionHeader -Title "Export: WSL" -Color Yellow
+    Write-SectionHeader -Title "Export: WSL"
 
     if ( -not (Test-Path -Path $wslExportPath) ) {
         throw "WSL Export path not found: $wslExportPath"
@@ -452,7 +453,7 @@ if ($ExportWsl) {
         wsl.exe --export $job.name $tarFile
 
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "WSL export of '$($job.name)' failed with exit code $LASTEXITCODE." -ForegroundColor Red
+            Write-Host "WSL export of '$($job.name)' failed with exit code $LASTEXITCODE" -ForegroundColor Red
             $failed = $true
         }
     }
@@ -466,7 +467,7 @@ if ($ExportWsl) {
 # configured paths. Robocopy keeps the timestamps: unchanged files look
 # identical to the mirror and create no history.
 
-Write-SectionHeader -Title "Config files: $configFolder\" -Color Blue
+Write-SectionHeader -Title "Config to $configFolder\"
 
 if (Test-Path -LiteralPath $configFolder) {
     Remove-Item -LiteralPath $configFolder -Recurse -Force
@@ -491,11 +492,11 @@ foreach ($target in $targets) {
 
     if (-not $SkipHistory) {
 
-        Write-SectionHeader -Title "History: $historyRoot\$timestamp\"
+        Write-SectionHeader -Title "History to $historyRoot\$timestamp\"
 
         try {
             $moved = Move-ToHistory -Source $source -Target $target -HistoryDir "$historyRoot\$timestamp" -Excludes $historyExcludes
-            Write-Host "Moved to history: $moved file(s)" -ForegroundColor Cyan
+            Write-Host "Moved $moved file(s) to history"
         }
         catch {
             Write-Host "History failed. $($_.Exception.Message)" -ForegroundColor Red
@@ -509,12 +510,16 @@ foreach ($target in $targets) {
     #---------------------------------------------------------------
     # Mirror
 
-    Write-SectionHeader -Title "Backup to $target\" -Color Magenta
+    Write-SectionHeader -Title "Backup to $target\"
 
     robocopy $source $target /r:0 /ndl /njs /njh /MIR /XD $backupExcludes
 
-    if ($LASTEXITCODE -ge 8) {
-        Write-Host "Robocopy failed with exit code $LASTEXITCODE." -ForegroundColor Red
+    # Exit code 0 = nothing copied and nothing deleted
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "No changed files found for backup"
+    }
+    elseif ($LASTEXITCODE -ge 8) {
+        Write-Host "Robocopy failed with exit code $LASTEXITCODE" -ForegroundColor Red
         $failed = $true
     }
 
@@ -539,25 +544,20 @@ foreach ($target in $targets) {
 
 if ($WithLinux) {
 
-    Write-SectionHeader -Title "Linux backup: $linuxDistribution" -Color Yellow
-
     wsl.exe -d $linuxDistribution -- $linuxScript
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "Linux backup failed with exit code $LASTEXITCODE." -ForegroundColor Red
+        Write-Host "Linux backup failed with exit code $LASTEXITCODE" -ForegroundColor Red
         $failed = $true
     }
 }
 
 #---------------------------------------------------------------
 
-Write-Host
-
 if ($failed) {
-    Write-Host "Backup finished with errors." -ForegroundColor Red
+    Write-Host
+    Write-Host "Backup finished with errors" -ForegroundColor Red
     exit 1
 }
-
-Write-Host "Backup finished." -ForegroundColor Green
 
 #---------------------------------------------------------------
