@@ -368,7 +368,7 @@ foreach ($drive in $driveConfigs) {
     if ((Get-DriveState $letter $drive.Label) -eq 'Ready') {
         $target = "$($letter):\$($env:COMPUTERNAME)\$targetFolder\$($env:UserName)"
         $roleName = $drive.Role.Substring(0, 1).ToUpper() + $drive.Role.Substring(1)
-        Write-Host "$roleName is $target\" -ForegroundColor Green
+        Write-Host "$roleName is $target\"
         $targets.Add($target)
     }
     else {
