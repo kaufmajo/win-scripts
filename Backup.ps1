@@ -77,7 +77,7 @@ elseif ($PSVersionTable.PSEdition -eq 'Desktop') {
 # MAIN HEADER
 #===============================================================
 
-Write-MainHeader -Title "Backup Script (Win)" -Subtitle "Version 0.7.4"
+Write-MainHeader -Title "Backup Script (Win)" -Subtitle "Version 0.7.5"
 
 #===============================================================
 # CONFIG
