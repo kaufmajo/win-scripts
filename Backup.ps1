@@ -467,7 +467,7 @@ if ($ExportWsl) {
 # configured paths. Robocopy keeps the timestamps: unchanged files look
 # identical to the mirror and create no history.
 
-Write-SectionHeader -Title "Config to $configFolder\"
+Write-SectionHeader -Title "Config" -Detail "$configFolder\"
 
 if (Test-Path -LiteralPath $configFolder) {
     Remove-Item -LiteralPath $configFolder -Recurse -Force
@@ -492,7 +492,7 @@ foreach ($target in $targets) {
 
     if (-not $SkipHistory) {
 
-        Write-SectionHeader -Title "History to $historyRoot\$timestamp\"
+        Write-SectionHeader -Title "History" -Detail "$historyRoot\$timestamp\"
 
         try {
             $moved = Move-ToHistory -Source $source -Target $target -HistoryDir "$historyRoot\$timestamp" -Excludes $historyExcludes
@@ -510,7 +510,7 @@ foreach ($target in $targets) {
     #---------------------------------------------------------------
     # Mirror
 
-    Write-SectionHeader -Title "Backup to $target\"
+    Write-SectionHeader -Title "Backup" -Detail "$target\"
 
     robocopy $source $target /r:0 /ndl /njs /njh /MIR /XD $backupExcludes
 

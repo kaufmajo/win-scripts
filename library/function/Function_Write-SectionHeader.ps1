@@ -1,20 +1,21 @@
+# Blue marker and title (like Homebrew), optional detail (e.g. a path) on the
+# next line:
+#   ==> Backup
+#       D:\host\win\user\
 function Write-SectionHeader {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Title,
 
-        [ConsoleColor]$Color = [ConsoleColor]::DarkGray,
+        [string]$Detail,
 
-        [ValidateRange(24, 120)]
-        [int]$Width = 64
+        [ConsoleColor]$Color = [ConsoleColor]::White
     )
 
-    $text = $Title
-    $line = ("=" * $Width)
-
     Write-Host
-    Write-Host $line -ForegroundColor DarkGray
-    Write-Host $text -ForegroundColor $Color
-    Write-Host $line -ForegroundColor DarkGray
-    Write-Host
+    Write-Host "==> " -ForegroundColor Blue -NoNewline
+    Write-Host $Title -ForegroundColor $Color
+    if ($Detail) {
+        Write-Host "    $Detail"
+    }
 }
