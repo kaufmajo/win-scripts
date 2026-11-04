@@ -1,4 +1,4 @@
-# win-scripts
+# Win scripts
 
 PowerShell helpers for Windows setup, access, and backup.
 
