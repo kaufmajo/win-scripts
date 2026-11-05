@@ -27,7 +27,7 @@
   <!-- Folders
        rootfolder          Folder to back up
        targetFolder        Mirror goes to X:\<COMPUTERNAME>\<targetFolder>\<USERNAME>\
-       configFolder        Copies of the <config> paths (rebuilt on every run, must be inside rootfolder)
+       configFolder        Copies of the <config> paths (synced on every run, must be inside rootfolder)
        wslExportFolder     Target of -ExportWsl
        hyperVPoolFolder    Hyper-V VM files, excluded from the mirror
        hyperVExportFolder  Target of -ExportHyperV -->

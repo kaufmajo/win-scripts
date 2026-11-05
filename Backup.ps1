@@ -77,7 +77,7 @@ elseif ($PSVersionTable.PSEdition -eq 'Desktop') {
 # MAIN HEADER
 #===============================================================
 
-Write-MainHeader -Title "Backup Script (Win)" -Subtitle "Version 0.7.5"
+Write-MainHeader -Title "Backup Script (Win)" -Subtitle "Version 0.7.6"
 
 #===============================================================
 # CONFIG
@@ -147,8 +147,9 @@ $historyExcludes = $backupExcludes + @($hyperVExportPath, $wslExportPath)
 # Robocopy source without trailing backslash ("C:\path\" would escape the closing quote)
 $source = $rootfolder.TrimEnd('\')
 
-# The config folder is emptied and rebuilt on every run: it must be a subfolder
-# of the root folder (so it is mirrored) and never the root folder itself.
+# Everything in the config folder that belongs to no configured path is deleted
+# on every run: it must be a subfolder of the root folder (so it is mirrored)
+# and never the root folder itself.
 if (-not $configFolder.StartsWith("$source\", [StringComparison]::OrdinalIgnoreCase)) {
     throw "configFolder must be a subfolder of rootfolder: $configFolder"
 }
@@ -177,10 +178,45 @@ function Get-DriveState {
     return 'NotReady'
 }
 
-# Copies each path (file or folder) to $ConfigFolder, keeping the full source
-# path, like "rsync --relative":
+# Returns where a configured path is copied to in $ConfigFolder, keeping the
+# full source path, like "rsync --relative":
 #   C:\Users\me\.gitconfig  ->  <ConfigFolder>\C\Users\me\.gitconfig
-# Returns the number of failed copies.
+function Get-ConfigTarget {
+    param(
+        [string]$ConfigFolder,
+        [string]$Path
+    )
+
+    # "C:\Users\me" -> "C\Users\me" (drive letter becomes a folder)
+    $relative = ($Path.TrimEnd('\') -replace '^([A-Za-z]):', '$1').TrimStart('\')
+
+    return Join-Path $ConfigFolder $relative
+}
+
+# True if $Path is one of $Targets or lies inside one of them.
+function Test-InConfigTarget {
+    param(
+        [string]$Path,
+        [string[]]$Targets
+    )
+
+    foreach ($target in $Targets) {
+        if ($Path.Equals($target, [StringComparison]::OrdinalIgnoreCase) -or
+            $Path.StartsWith("$target\", [StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+# Syncs each path (file or folder) to its place in $ConfigFolder (see
+# Get-ConfigTarget). Robocopy skips unchanged files, so only new, changed and
+# deleted files are listed. Returns the number of failures.
+#
+# Whatever no longer exists at the source is removed from $ConfigFolder: files
+# deleted inside a configured folder (/MIR) and configured paths that are gone.
+# Their last version is moved to the history of the backup drive by the mirror.
 function Copy-ConfigFiles {
     param(
         [string]$ConfigFolder,
@@ -194,18 +230,30 @@ function Copy-ConfigFiles {
         if ([string]::IsNullOrWhiteSpace($path)) { continue }
 
         $path = $path.TrimEnd('\')
-
-        # "C:\Users\me" -> "C\Users\me" (drive letter becomes a folder)
-        $relative = ($path -replace '^([A-Za-z]):', '$1').TrimStart('\')
-        $target = Join-Path $ConfigFolder $relative
+        $target = Get-ConfigTarget -ConfigFolder $ConfigFolder -Path $path
 
         # "| Out-Host" shows robocopy's output; without it, the output would
-        # become the return value of this function.
+        # become the return value of this function. Empty lines are dropped,
+        # so unchanged paths print nothing at all.
         if (Test-Path -LiteralPath $path -PathType Leaf) {
-            robocopy (Split-Path $path) (Split-Path $target) (Split-Path $path -Leaf) /R:0 /NS /NC /NDL /NP /NJH /NJS | Out-Host
+            robocopy (Split-Path $path) (Split-Path $target) (Split-Path $path -Leaf) /R:0 /NS /NDL /NP /NJH /NJS |
+            Where-Object { $_.Trim() } | Out-Host
         }
         elseif (Test-Path -LiteralPath $path -PathType Container) {
-            robocopy $path $target /E /R:0 /NS /NC /NDL /NP /NJH /NJS | Out-Host
+            robocopy $path $target /MIR /R:0 /NS /NDL /NP /NJH /NJS |
+            Where-Object { $_.Trim() } | Out-Host
+        }
+        elseif (Test-Path -LiteralPath $target) {
+            # Source is gone: remove the copy (see above)
+            try {
+                Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction Stop
+                Write-Host "Source no longer exists, copy removed: $path" -ForegroundColor Yellow
+            }
+            catch {
+                Write-Host "Could not remove copy: $target. $($_.Exception.Message)" -ForegroundColor Red
+                $failures++
+            }
+            continue
         }
         else {
             Write-Host "Config path not found, skipped: $path" -ForegroundColor Yellow
@@ -215,6 +263,57 @@ function Copy-ConfigFiles {
         if ($LASTEXITCODE -ge 8) {
             Write-Host "Robocopy failed with exit code $($LASTEXITCODE): $path" -ForegroundColor Red
             $failures++
+        }
+    }
+
+    return $failures
+}
+
+# Deletes everything in $ConfigFolder that belongs to no configured path (the
+# path was removed from the config), then the folders left empty.
+# Returns the number of files that could not be deleted.
+function Remove-UnconfiguredFiles {
+    param(
+        [string]$ConfigFolder,
+        [string[]]$Paths
+    )
+
+    if (-not (Test-Path -LiteralPath $ConfigFolder)) { return 0 }
+
+    $targets = @(
+        $Paths |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        ForEach-Object { Get-ConfigTarget -ConfigFolder $ConfigFolder -Path $_ }
+    )
+
+    $failures = 0
+
+    # Collect first, then delete (no deleting while Get-ChildItem enumerates)
+    $files = @(Get-ChildItem -LiteralPath $ConfigFolder -Recurse -File -Force)
+
+    foreach ($file in $files) {
+
+        if (Test-InConfigTarget -Path $file.FullName -Targets $targets) { continue }
+
+        try {
+            Remove-Item -LiteralPath $file.FullName -Force -ErrorAction Stop
+            Write-Host "No longer in config, copy removed: $($file.FullName)" -ForegroundColor Yellow
+        }
+        catch {
+            Write-Host "Could not remove: $($file.FullName). $($_.Exception.Message)" -ForegroundColor Red
+            $failures++
+        }
+    }
+
+    # Empty folders left behind, e.g. "C\Users\me" after its last configured
+    # path was removed. Deepest first, so a parent is empty once its children
+    # are gone. Folders inside a configured target are left to robocopy.
+    Get-ChildItem -LiteralPath $ConfigFolder -Recurse -Directory -Force |
+    Where-Object { -not (Test-InConfigTarget -Path $_.FullName -Targets $targets) } |
+    Sort-Object { $_.FullName.Length } -Descending |
+    ForEach-Object {
+        if (-not (Get-ChildItem -LiteralPath $_.FullName -Force | Select-Object -First 1)) {
+            Remove-Item -LiteralPath $_.FullName -Force
         }
     }
 
@@ -463,17 +562,24 @@ if ($ExportWsl) {
 # CONFIG FILES (always, before the mirror, so the copies get backed up)
 #===============================================================
 
-# The folder is rebuilt from scratch, so it always contains exactly the
-# configured paths. Robocopy keeps the timestamps: unchanged files look
-# identical to the mirror and create no history.
+# The folder is synced, not rebuilt: robocopy only copies new and changed
+# files and keeps the timestamps, so only real changes are listed here and in
+# the mirror, and unchanged files create no history. It always contains
+# exactly the configured paths that exist:
+#
+#   Path removed from the config               -> copy removed
+#   Configured path no longer exists           -> copy removed
+#   File deleted inside a configured folder    -> copy removed
+#
+# Removed copies are not lost: the mirror moves their old version to history.
 
 Write-SectionHeader -Title "Config" -Detail "$configFolder\"
 
-if (Test-Path -LiteralPath $configFolder) {
-    Remove-Item -LiteralPath $configFolder -Recurse -Force
+if ((Copy-ConfigFiles -ConfigFolder $configFolder -Paths $configPaths) -gt 0) {
+    $failed = $true
 }
 
-if ((Copy-ConfigFiles -ConfigFolder $configFolder -Paths $configPaths) -gt 0) {
+if ((Remove-UnconfiguredFiles -ConfigFolder $configFolder -Paths $configPaths) -gt 0) {
     $failed = $true
 }
 

@@ -72,8 +72,10 @@ X:\<COMPUTERNAME>\<targetFolder>\<USERNAME>.history\    history: old versions of
 - Check source paths, destination drive letters, and volume labels in the XML.
 - Config files outside the root folder (`<config>` paths) are copied into
   `configFolder` first, keeping the full path
-  (`C:\Users\me\.gitconfig` becomes `___Config\C\Users\me\.gitconfig`). The
-  folder is rebuilt on every run, so it must be a subfolder of the root folder
+  (`C:\Users\me\.gitconfig` becomes `___Config\C\Users\me\.gitconfig`). Only
+  new and changed files are copied and listed. Copies whose source no longer
+  exists or whose path was removed from the XML are deleted (their old version
+  goes to the history), so the folder must be a subfolder of the root folder
   and not contain anything else. Nothing is ever copied back.
 - Mirroring uses `robocopy /MIR`, which deletes destination files that no longer
   exist in the source. Before that, their old versions are moved to the history
