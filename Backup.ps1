@@ -77,7 +77,7 @@ elseif ($PSVersionTable.PSEdition -eq 'Desktop') {
 # MAIN HEADER
 #===============================================================
 
-Write-MainHeader -Title "Backup Script (Win)" -Subtitle "Version 0.7.7"
+Write-MainHeader -Title "Backup Script (Win)" -Subtitle "Version 0.7.8"
 
 #===============================================================
 # CONFIG
@@ -210,6 +210,57 @@ function Test-InConfigTarget {
     return $false
 }
 
+# Prints robocopy's file list like rsync in backup.sh: one path per line,
+# "deleting <path>" for what /MIR removes. Robocopy must run with
+# /FP /NS /NP /NJH /NJS, so a line is "<class><tabs><full path>".
+# A path below $SourceRoot or $TargetRoot is shown relative to it, with
+# $DisplayRoot in front (none = relative path). Other lines (e.g. errors) are
+# shown unchanged, empty lines are dropped.
+function Write-RobocopyOutput {
+    param(
+        [Parameter(ValueFromPipeline = $true)]
+        [AllowEmptyString()]
+        [string]$Line,
+
+        [string]$SourceRoot,
+        [string]$TargetRoot,
+        [string]$DisplayRoot = ''
+    )
+
+    begin {
+        $roots = @($SourceRoot, $TargetRoot) | ForEach-Object { $_.TrimEnd('\') + '\' }
+        if ($DisplayRoot) { $DisplayRoot = $DisplayRoot.TrimEnd('\') + '\' }
+    }
+
+    process {
+        if (-not $Line.Trim()) { return }
+
+        # e.g. "<tab>    New File  <tab><tab><tab>C:\src\a.txt"
+        #      "<tab>*EXTRA Dir  <tab>D:\target\old\"
+        if ($Line -notmatch '^\t\s*(?<class>\*?[A-Za-z][A-Za-z ]*?)\s*\t+(?<path>.+)$') {
+            Write-Host $Line.Trim()
+            return
+        }
+
+        $class = $Matches.class
+        $path = $Matches.path
+
+        foreach ($root in $roots) {
+            if ($path.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) {
+                $path = $DisplayRoot + $path.Substring($root.Length)
+                break
+            }
+        }
+
+        if ($class.StartsWith('*EXTRA')) {
+            Write-Host "deleting $path"
+        }
+        else {
+            Write-Host $path
+        }
+    }
+}
+
 # Syncs each path (file or folder) to its place in $ConfigFolder (see
 # Get-ConfigTarget). Robocopy skips unchanged files, so only new, changed and
 # deleted files are listed. Returns the number of changed paths and failures.
@@ -233,19 +284,19 @@ function Copy-ConfigFiles {
         $path = $path.TrimEnd('\')
         $target = Get-ConfigTarget -ConfigFolder $ConfigFolder -Path $path
 
-        # "| Out-Host" shows robocopy's output; without it, the output would
-        # become the return value of this function. Empty lines are dropped,
-        # so unchanged paths print nothing at all.
+        # Robocopy's output is shown with the full source path (see
+        # Write-RobocopyOutput); unchanged paths print nothing at all.
         # $changedBits: robocopy exit code bits that mean something changed
         # (1 = files copied, 2 = extra files, which /MIR deletes)
         if (Test-Path -LiteralPath $path -PathType Leaf) {
-            robocopy (Split-Path $path) (Split-Path $target) (Split-Path $path -Leaf) /R:0 /NS /NDL /NP /NJH /NJS |
-            Where-Object { $_.Trim() } | Out-Host
+            $sourceDir = Split-Path $path
+            robocopy $sourceDir (Split-Path $target) (Split-Path $path -Leaf) /R:0 /NS /NDL /NP /FP /NJH /NJS |
+            Write-RobocopyOutput -SourceRoot $sourceDir -TargetRoot (Split-Path $target) -DisplayRoot $sourceDir
             $changedBits = 1
         }
         elseif (Test-Path -LiteralPath $path -PathType Container) {
-            robocopy $path $target /MIR /R:0 /NS /NDL /NP /NJH /NJS |
-            Where-Object { $_.Trim() } | Out-Host
+            robocopy $path $target /MIR /R:0 /NS /NDL /NP /FP /NJH /NJS |
+            Write-RobocopyOutput -SourceRoot $path -TargetRoot $target -DisplayRoot $path
             $changedBits = 3
         }
         elseif (Test-Path -LiteralPath $target) {
@@ -635,10 +686,9 @@ foreach ($target in $targets) {
 
     Write-SectionHeader -Title "Backup" -Detail "$target\"
 
-    # robocopy prints an empty line even with /njh; drop empty lines so the
-    # spacing below the header matches the other sections (same as the config sync)
-    robocopy $source $target /r:0 /ndl /njs /njh /MIR /XD $backupExcludes |
-    Where-Object { $_.Trim() } | Out-Host
+    # Paths relative to the source, like rsync in backup.sh (see Write-RobocopyOutput)
+    robocopy $source $target /r:0 /ndl /ns /np /fp /njs /njh /MIR /XD $backupExcludes |
+    Write-RobocopyOutput -SourceRoot $source -TargetRoot $target
 
     # Exit code 0 = nothing copied and nothing deleted
     if ($LASTEXITCODE -eq 0) {
