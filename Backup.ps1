@@ -77,7 +77,7 @@ elseif ($PSVersionTable.PSEdition -eq 'Desktop') {
 # MAIN HEADER
 #===============================================================
 
-Write-MainHeader -Title "Backup Script (Win)" -Subtitle "Version 0.7.6"
+Write-MainHeader -Title "Backup Script (Win)" -Subtitle "Version 0.7.7"
 
 #===============================================================
 # CONFIG
@@ -212,7 +212,7 @@ function Test-InConfigTarget {
 
 # Syncs each path (file or folder) to its place in $ConfigFolder (see
 # Get-ConfigTarget). Robocopy skips unchanged files, so only new, changed and
-# deleted files are listed. Returns the number of failures.
+# deleted files are listed. Returns the number of changed paths and failures.
 #
 # Whatever no longer exists at the source is removed from $ConfigFolder: files
 # deleted inside a configured folder (/MIR) and configured paths that are gone.
@@ -223,6 +223,7 @@ function Copy-ConfigFiles {
         [string[]]$Paths
     )
 
+    $changes = 0
     $failures = 0
 
     foreach ($path in $Paths) {
@@ -235,19 +236,24 @@ function Copy-ConfigFiles {
         # "| Out-Host" shows robocopy's output; without it, the output would
         # become the return value of this function. Empty lines are dropped,
         # so unchanged paths print nothing at all.
+        # $changedBits: robocopy exit code bits that mean something changed
+        # (1 = files copied, 2 = extra files, which /MIR deletes)
         if (Test-Path -LiteralPath $path -PathType Leaf) {
             robocopy (Split-Path $path) (Split-Path $target) (Split-Path $path -Leaf) /R:0 /NS /NDL /NP /NJH /NJS |
             Where-Object { $_.Trim() } | Out-Host
+            $changedBits = 1
         }
         elseif (Test-Path -LiteralPath $path -PathType Container) {
             robocopy $path $target /MIR /R:0 /NS /NDL /NP /NJH /NJS |
             Where-Object { $_.Trim() } | Out-Host
+            $changedBits = 3
         }
         elseif (Test-Path -LiteralPath $target) {
             # Source is gone: remove the copy (see above)
             try {
                 Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction Stop
                 Write-Host "Source no longer exists, copy removed: $path" -ForegroundColor Yellow
+                $changes++
             }
             catch {
                 Write-Host "Could not remove copy: $target. $($_.Exception.Message)" -ForegroundColor Red
@@ -264,21 +270,26 @@ function Copy-ConfigFiles {
             Write-Host "Robocopy failed with exit code $($LASTEXITCODE): $path" -ForegroundColor Red
             $failures++
         }
+        elseif ($LASTEXITCODE -band $changedBits) {
+            $changes++
+        }
     }
 
-    return $failures
+    return [pscustomobject]@{ Changes = $changes; Failures = $failures }
 }
 
 # Deletes everything in $ConfigFolder that belongs to no configured path (the
 # path was removed from the config), then the folders left empty.
-# Returns the number of files that could not be deleted.
+# Returns the number of deleted files and of files that could not be deleted.
 function Remove-UnconfiguredFiles {
     param(
         [string]$ConfigFolder,
         [string[]]$Paths
     )
 
-    if (-not (Test-Path -LiteralPath $ConfigFolder)) { return 0 }
+    if (-not (Test-Path -LiteralPath $ConfigFolder)) {
+        return [pscustomobject]@{ Changes = 0; Failures = 0 }
+    }
 
     $targets = @(
         $Paths |
@@ -286,6 +297,7 @@ function Remove-UnconfiguredFiles {
         ForEach-Object { Get-ConfigTarget -ConfigFolder $ConfigFolder -Path $_ }
     )
 
+    $changes = 0
     $failures = 0
 
     # Collect first, then delete (no deleting while Get-ChildItem enumerates)
@@ -298,6 +310,7 @@ function Remove-UnconfiguredFiles {
         try {
             Remove-Item -LiteralPath $file.FullName -Force -ErrorAction Stop
             Write-Host "No longer in config, copy removed: $($file.FullName)" -ForegroundColor Yellow
+            $changes++
         }
         catch {
             Write-Host "Could not remove: $($file.FullName). $($_.Exception.Message)" -ForegroundColor Red
@@ -317,7 +330,7 @@ function Remove-UnconfiguredFiles {
         }
     }
 
-    return $failures
+    return [pscustomobject]@{ Changes = $changes; Failures = $failures }
 }
 
 # Moves the old version of every file that "robocopy /MIR" would overwrite or
@@ -371,7 +384,7 @@ function Move-ToHistory {
         try {
             New-Item -ItemType Directory -Path (Split-Path $historyFile) -Force | Out-Null
             Move-Item -LiteralPath $oldFile -Destination $historyFile -Force
-            Write-Host "History: $relative"
+            Write-Host $relative
             $count++
         }
         catch {
@@ -575,12 +588,14 @@ if ($ExportWsl) {
 
 Write-SectionHeader -Title "Config" -Detail "$configFolder\"
 
-if ((Copy-ConfigFiles -ConfigFolder $configFolder -Paths $configPaths) -gt 0) {
+$copied = Copy-ConfigFiles -ConfigFolder $configFolder -Paths $configPaths
+$removed = Remove-UnconfiguredFiles -ConfigFolder $configFolder -Paths $configPaths
+
+if ($copied.Failures + $removed.Failures -gt 0) {
     $failed = $true
 }
-
-if ((Remove-UnconfiguredFiles -ConfigFolder $configFolder -Paths $configPaths) -gt 0) {
-    $failed = $true
+elseif ($copied.Changes + $removed.Changes -eq 0) {
+    Write-Host "No changed files found for config" -ForegroundColor DarkGray
 }
 
 #===============================================================
@@ -602,7 +617,9 @@ foreach ($target in $targets) {
 
         try {
             $moved = Move-ToHistory -Source $source -Target $target -HistoryDir "$historyRoot\$timestamp" -Excludes $historyExcludes
-            Write-Host "Moved $moved file(s) to history"
+            if ($moved -eq 0) {
+                Write-Host "No changed files found for history" -ForegroundColor DarkGray
+            }
         }
         catch {
             Write-Host "History failed. $($_.Exception.Message)" -ForegroundColor Red
@@ -618,11 +635,14 @@ foreach ($target in $targets) {
 
     Write-SectionHeader -Title "Backup" -Detail "$target\"
 
-    robocopy $source $target /r:0 /ndl /njs /njh /MIR /XD $backupExcludes
+    # robocopy prints an empty line even with /njh; drop empty lines so the
+    # spacing below the header matches the other sections (same as the config sync)
+    robocopy $source $target /r:0 /ndl /njs /njh /MIR /XD $backupExcludes |
+    Where-Object { $_.Trim() } | Out-Host
 
     # Exit code 0 = nothing copied and nothing deleted
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "No changed files found for backup"
+        Write-Host "No changed files found for backup" -ForegroundColor DarkGray
     }
     elseif ($LASTEXITCODE -ge 8) {
         Write-Host "Robocopy failed with exit code $LASTEXITCODE" -ForegroundColor Red
@@ -634,12 +654,20 @@ foreach ($target in $targets) {
 
     if (-not $SkipHistory -and (Test-Path -LiteralPath $historyRoot)) {
 
-        Get-ChildItem -LiteralPath $historyRoot -Directory |
-        Sort-Object Name -Descending |
-        Select-Object -Skip $historyKeep |
-        ForEach-Object {
-            Remove-Item -LiteralPath $_.FullName -Recurse -Force -ProgressAction SilentlyContinue
-            Write-Host "Deleted history: $($_.FullName)"
+        $oldFolders = @(
+            Get-ChildItem -LiteralPath $historyRoot -Directory |
+            Sort-Object Name -Descending |
+            Select-Object -Skip $historyKeep
+        )
+
+        # Header only when something gets deleted
+        if ($oldFolders.Count -gt 0) {
+            Write-SectionHeader -Title "History cleanup" -Detail "$historyRoot\"
+        }
+
+        foreach ($folder in $oldFolders) {
+            Remove-Item -LiteralPath $folder.FullName -Recurse -Force -ProgressAction SilentlyContinue
+            Write-Host "Deleted history: $($folder.FullName)"
         }
     }
 }

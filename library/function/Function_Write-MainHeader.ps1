@@ -1,4 +1,4 @@
-# One line: title, gray subtitle.
+# One line: cyan title, gray subtitle.
 #   Backup Script (Win)  Version 1.0
 function Write-MainHeader {
     param(
@@ -8,7 +8,7 @@ function Write-MainHeader {
         [Parameter(Mandatory = $true)]
         [string]$Subtitle,
 
-        [ConsoleColor]$AccentColor = [ConsoleColor]::White
+        [ConsoleColor]$AccentColor = [ConsoleColor]::Cyan
     )
 
     Write-Host
