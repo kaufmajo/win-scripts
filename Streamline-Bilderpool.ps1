@@ -197,13 +197,6 @@ function Read-Metadata {
     finally { $process.Dispose() }
 }
 
-function Get-BlockingMetadataWarnings {
-    param ([string[]]$Warnings)
-    $Warnings | Where-Object {
-        $_ -and $_ -cne 'Invalid EXIF text encoding for UserComment'
-    }
-}
-
 function Get-MediaDate {
     param ($Metadata, [bool]$IsVideo)
     $tags = @('ExifIFD:DateTimeOriginal', 'XMP-exif:DateTimeOriginal')
@@ -230,6 +223,29 @@ function Get-MediaDate {
             }
         }
     }
+}
+
+function Get-OrganizationMetadata {
+    param ($Metadata, [bool]$IsVideo)
+    $date = $null
+    $reason = ''
+    $dateWarnings = @()
+    if (-not $Metadata) {
+        $reason = 'Metadata could not be read; file left untouched.'
+    }
+    elseif ($Metadata['ExifTool:Error'] -or
+        $Metadata['File:MIMEType'] -notmatch '^(image|video)/') {
+        $reason = "Unreadable/unsupported media (type: $($Metadata['File:MIMEType'])): $($Metadata['ExifTool:Error'])"
+    }
+    else {
+        # Warning text is not structured. Explicit date/time warnings require a
+        # manual decision; unrelated warnings do not invalidate naming fields.
+        $dateWarnings = @($Metadata['ExifTool:Warning'] | Where-Object {
+            $_ -match '(?i)date|time|creation|capture|GPSWeek|GPSSeconds'
+        })
+        if (-not $dateWarnings.Count) { $date = Get-MediaDate $Metadata $IsVideo }
+    }
+    [pscustomobject]@{ Date = $date; Reason = $reason; HasDateWarning = ($dateWarnings.Count -gt 0) }
 }
 
 function Read-MenuChoice {
@@ -394,22 +410,20 @@ try {
         $metadata = Read-Metadata @($plans.FullName)
         $items = @(foreach ($file in $plans) {
             $record = $metadata[$file.FullName]
-            $date = $null
-            $reason = ''
             $isVideo = $file.Extension.ToLowerInvariant() -in $videoExtensions
             $warnings = if ($record) { @($record['ExifTool:Warning']) } else { @() }
-            $blockingWarnings = @(Get-BlockingMetadataWarnings $warnings)
-            if ($warnings -ccontains 'Invalid EXIF text encoding for UserComment') {
-                Write-Warning "$($file.FullName): Invalid EXIF text encoding for UserComment (allowed; metadata left unchanged)."
+            foreach ($warning in $warnings) {
+                if ($warning) {
+                    Write-Warning "$($file.FullName): $warning (metadata left unchanged)."
+                }
             }
-            if (-not $record -or $record['ExifTool:Error'] -or $blockingWarnings.Count -or
-                $record['File:MIMEType'] -notmatch '^(image|video)/') {
-                $reason = "Unreadable/unsupported media or metadata warning (type: $($record['File:MIMEType'])): $($record['ExifTool:Error']) $($blockingWarnings -join '; ')"
+            $organization = Get-OrganizationMetadata $record $isVideo
+            if ($organization.HasDateWarning) {
+                Write-Warning "$($file.FullName): Date-related warning; embedded dates will not be used. Choose a year, unknown, or skip."
             }
-            else {
-                $date = Get-MediaDate $record $isVideo
+            [pscustomobject]@{
+                File = $file; Date = $organization.Date; IsVideo = $isVideo; Reason = $organization.Reason
             }
-            [pscustomobject]@{ File = $file; Date = $date; IsVideo = $isVideo; Reason = $reason }
         })
         $description = if ($folder.Name -eq $source) { '' }
             else { ConvertTo-SafeName ([IO.Path]::GetFileName($folder.Name)) }

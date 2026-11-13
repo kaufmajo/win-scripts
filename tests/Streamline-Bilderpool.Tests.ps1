@@ -79,21 +79,40 @@ try {
     foreach ($function in $ast.FindAll({
         param ($node)
         $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
-            $node.Name -in @('ConvertTo-SafeName', 'Get-DestinationFileName', 'Get-BlockingMetadataWarnings')
+            $node.Name -in @('ConvertTo-SafeName', 'Get-DestinationFileName', 'Get-MediaDate', 'Get-OrganizationMetadata')
     }, $true)) {
         . ([scriptblock]::Create($function.Extent.Text))
     }
     $DescriptionMaxLength = 6
     Assert-True ((ConvertTo-SafeName 'Long Description') -eq 'long_d') 'description length uses user setting'
     $DescriptionMaxLength = 80
-    $commentWarning = 'Invalid EXIF text encoding for UserComment'
-    Assert-True (@(Get-BlockingMetadataWarnings @($commentWarning)).Count -eq 0) 'allow exact UserComment encoding warning'
-    $remainingWarnings = @(Get-BlockingMetadataWarnings @($commentWarning, 'Bad EXIF directory'))
-    Assert-True ($remainingWarnings.Count -eq 1 -and $remainingWarnings[0] -eq
-        'Bad EXIF directory') 'other simultaneous warnings still block processing'
-    Assert-True (@(Get-BlockingMetadataWarnings @("$commentWarning; Bad EXIF directory")).Count -eq
-        1) 'combined warning text is not broadly ignored'
-    Assert-True (@(Get-BlockingMetadataWarnings @()).Count -eq 0) 'missing warning is not blocking'
+    $MinimumYear = 1800
+    $MaximumYear = (Get-Date).Year + 1
+    $record = @{
+        'File:MIMEType' = 'image/jpeg'
+        'ExifIFD:DateTimeOriginal' = '2023:08:14 15:32:07'
+    }
+    foreach ($warning in @(
+        'Invalid EXIF text encoding for UserComment',
+        '[minor] Canon maker note footer may be invalid (ignored)',
+        '[minor] Adjusted MakerNotes base by 4012',
+        'Previously unseen metadata warning'
+    )) {
+        $record['ExifTool:Warning'] = $warning
+        $organization = Get-OrganizationMetadata $record $false
+        Assert-True ($organization.Date.Year -eq '2023' -and -not $organization.Reason) 'unrelated warnings preserve valid organizing date'
+    }
+    $record['ExifTool:Warning'] = @('Adjusted MakerNotes base', 'Invalid DateTimeOriginal value')
+    $organization = Get-OrganizationMetadata $record $false
+    Assert-True (-not $organization.Date -and -not $organization.Reason -and
+        $organization.HasDateWarning) 'date-related warnings require manual year decision without blocking file'
+    $record.Remove('ExifTool:Warning')
+    $record['ExifIFD:DateTimeOriginal'] = '2023:99:99 15:32:07'
+    Assert-True (-not (Get-OrganizationMetadata $record $false).Date) 'invalid date requires manual decision'
+    $record['ExifTool:Error'] = 'Read error'
+    Assert-True ([bool](Get-OrganizationMetadata $record $false).Reason) 'actual read errors still block'
+    Assert-True ([bool](Get-OrganizationMetadata $null $false).Reason) 'missing metadata still blocks'
+    Assert-True ([bool](Get-OrganizationMetadata @{ 'File:MIMEType' = 'text/plain' } $false).Reason) 'unsupported media still blocks'
     Assert-True ((Get-DestinationFileName 'C:\out' 'image_1' '.jpg' 'Ärger (IMG.4321)') -eq
         'image_1__orig_aerger_img_4321.jpg') 'sanitize original basename'
     Assert-True ((Get-DestinationFileName 'C:\out' 'image_1__dir_album' '.jpg' 'test__orig_name') -eq

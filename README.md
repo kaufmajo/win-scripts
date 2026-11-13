@@ -90,10 +90,14 @@ in the source and prompt again next run. Preview decisions are not saved.
 Year marker files such as `_year_2018.txt` are no longer read.
 Filesystem dates and ambiguous video timestamps are not used; timezone-qualified
 video creation dates retain their recorded local time.
-The exact ExifTool warning `Invalid EXIF text encoding for UserComment` is reported
-but does not block organizing: the comment is not used for naming. Other metadata
-warnings and read errors still block processing. Metadata is never repaired or
-rewritten.
+ExifTool warnings are reported but do not generally block organizing. The script
+validates the media type and capture date it actually uses; unrelated warnings
+such as MakerNotes adjustments or UserComment encoding do not prevent moving.
+Warnings mentioning dates, times, creation, capture or GPS week/seconds cause
+embedded dates to be disregarded and a manual year/unknown/skip decision to be
+requested. This is a conservative text-based check, not a guarantee of date
+accuracy. Actual read errors and unsupported media still block processing.
+Metadata is never repaired or rewritten; image decoding is not validated.
 
 Normal runs display file details with blue labels for videos, default labels for
 images, yellow skip reasons, and red failure reasons. Use `-PassThru` to return
