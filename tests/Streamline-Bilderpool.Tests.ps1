@@ -79,13 +79,21 @@ try {
     foreach ($function in $ast.FindAll({
         param ($node)
         $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
-            $node.Name -in @('ConvertTo-SafeName', 'Get-DestinationFileName')
+            $node.Name -in @('ConvertTo-SafeName', 'Get-DestinationFileName', 'Get-BlockingMetadataWarnings')
     }, $true)) {
         . ([scriptblock]::Create($function.Extent.Text))
     }
     $DescriptionMaxLength = 6
     Assert-True ((ConvertTo-SafeName 'Long Description') -eq 'long_d') 'description length uses user setting'
     $DescriptionMaxLength = 80
+    $commentWarning = 'Invalid EXIF text encoding for UserComment'
+    Assert-True (@(Get-BlockingMetadataWarnings @($commentWarning)).Count -eq 0) 'allow exact UserComment encoding warning'
+    $remainingWarnings = @(Get-BlockingMetadataWarnings @($commentWarning, 'Bad EXIF directory'))
+    Assert-True ($remainingWarnings.Count -eq 1 -and $remainingWarnings[0] -eq
+        'Bad EXIF directory') 'other simultaneous warnings still block processing'
+    Assert-True (@(Get-BlockingMetadataWarnings @("$commentWarning; Bad EXIF directory")).Count -eq
+        1) 'combined warning text is not broadly ignored'
+    Assert-True (@(Get-BlockingMetadataWarnings @()).Count -eq 0) 'missing warning is not blocking'
     Assert-True ((Get-DestinationFileName 'C:\out' 'image_1' '.jpg' 'Ärger (IMG.4321)') -eq
         'image_1__orig_aerger_img_4321.jpg') 'sanitize original basename'
     Assert-True ((Get-DestinationFileName 'C:\out' 'image_1__dir_album' '.jpg' 'test__orig_name') -eq
@@ -322,6 +330,34 @@ try {
     $movedScan = $overrideApply | Where-Object Source -EQ $scan
     Assert-True ($movedScan.Status -eq 'Moved' -and
         (Get-FileHash -LiteralPath $movedScan.Destination).Hash -eq $originalHash) 'override moves without changing embedded metadata'
+
+    $source = Join-Path $root 'cleanup-source'
+    $destination = Join-Path $root 'cleanup-result'
+    $parent = Join-Path $source 'a-parent'
+    $childFolder = Join-Path $parent 'child'
+    $hiddenFolder = Join-Path $source 'b-hidden'
+    $skipFolder = Join-Path $source 'c-skipped'
+    $cleanupImages = @(
+        (New-TestImage $parent 'parent.JPG'),
+        (New-TestImage $childFolder 'child.JPG'),
+        (New-TestImage $hiddenFolder 'hidden.JPG'),
+        (New-TestImage $skipFolder 'skip.JPG'),
+        (New-TestImage $source 'root.JPG')
+    )
+    Set-TestDates $cleanupImages
+    $hiddenFile = Join-Path $hiddenFolder 'keep.txt'
+    [IO.File]::WriteAllText($hiddenFile, 'Keep hidden content')
+    [IO.File]::SetAttributes($hiddenFile, [IO.FileAttributes]::Hidden)
+    Invoke-TestRun @('y', 'y', 'y', 'y', 's') | Out-Null
+    Assert-True ($lastFeedback.Contains("Would remove empty source folder: $parent") -and
+        $lastFeedback.Contains("Would remove empty source folder: $childFolder")) 'preview predicts nested cleanup'
+    Assert-True ((Test-Path -LiteralPath $childFolder) -and
+        (Test-Path -LiteralPath $cleanupImages[0])) 'preview cleanup changes nothing'
+    Invoke-TestRun @('y', 'y', 'y', 'y', 's') -Apply | Out-Null
+    Assert-True (-not (Test-Path -LiteralPath $parent)) 'remove emptied parent and child deepest first'
+    Assert-True ((Test-Path -LiteralPath $source) -and
+        (Test-Path -LiteralPath $hiddenFile) -and
+        (Test-Path -LiteralPath $cleanupImages[3])) 'retain source root, hidden content and skipped folder'
 
     $rejected = $false
     try {

@@ -15,8 +15,9 @@
     Override dates in the folder menu to ignore embedded dates for naming only.
     Ambiguous QuickTime timestamps and filesystem dates are not used.
 
-    Unsupported files (including XMP sidecars) and empty source folders
-    stay in place. Keep a backup before using -Apply. The destination journal
+    Unsupported files (including XMP sidecars) stay in place. Approved source
+    subfolders are removed if empty after moving; the source root is always kept.
+    Keep a backup before using -Apply. The destination journal
     records moves and supports interrupted-run recovery; it is not a backup.
 .EXAMPLE
     .\Streamline-Bilderpool.ps1
@@ -196,6 +197,13 @@ function Read-Metadata {
     finally { $process.Dispose() }
 }
 
+function Get-BlockingMetadataWarnings {
+    param ([string[]]$Warnings)
+    $Warnings | Where-Object {
+        $_ -and $_ -cne 'Invalid EXIF text encoding for UserComment'
+    }
+}
+
 function Get-MediaDate {
     param ($Metadata, [bool]$IsVideo)
     $tags = @('ExifIFD:DateTimeOriginal', 'XMP-exif:DateTimeOriginal')
@@ -321,6 +329,7 @@ $mediaExtensions = $imageExtensions + $videoExtensions
 $journalPath = Join-Path $destination '_streamline-journal.csv'
 $lock = $null
 $results = [Collections.Generic.List[object]]::new()
+$approvedFolders = [Collections.Generic.List[string]]::new()
 $files = @()
 try {
     if ($Apply) {
@@ -388,9 +397,14 @@ try {
             $date = $null
             $reason = ''
             $isVideo = $file.Extension.ToLowerInvariant() -in $videoExtensions
-            if (-not $record -or $record['ExifTool:Error'] -or $record['ExifTool:Warning'] -or
+            $warnings = if ($record) { @($record['ExifTool:Warning']) } else { @() }
+            $blockingWarnings = @(Get-BlockingMetadataWarnings $warnings)
+            if ($warnings -ccontains 'Invalid EXIF text encoding for UserComment') {
+                Write-Warning "$($file.FullName): Invalid EXIF text encoding for UserComment (allowed; metadata left unchanged)."
+            }
+            if (-not $record -or $record['ExifTool:Error'] -or $blockingWarnings.Count -or
                 $record['File:MIMEType'] -notmatch '^(image|video)/') {
-                $reason = "Unreadable/unsupported media or metadata warning (type: $($record['File:MIMEType'])): $($record['ExifTool:Error']) $($record['ExifTool:Warning'])"
+                $reason = "Unreadable/unsupported media or metadata warning (type: $($record['File:MIMEType'])): $($record['ExifTool:Error']) $($blockingWarnings -join '; ')"
             }
             else {
                 $date = Get-MediaDate $record $isVideo
@@ -478,6 +492,7 @@ try {
         if ($choice -eq 'q') { break }
         if ($choice -eq 'n') { $description = '' }
         if ($choice -ne 's') {
+            if ($folder.Name -ne $source) { $approvedFolders.Add($folder.Name) }
             Write-Host
             Write-Host "description: `"$description`""
             if ($undated.Count) {
@@ -553,6 +568,30 @@ try {
             Write-MoveRecord $entry
             Write-MediaResult $result $item.IsVideo
         }
+    }
+    $previewRemovals = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    if (-not $Apply) {
+        foreach ($result in $results) {
+            if ($result.Status -eq 'Preview') { $previewRemovals.Add($result.Source) | Out-Null }
+        }
+    }
+    foreach ($folderPath in ($approvedFolders | Sort-Object { $_.Length } -Descending)) {
+        try {
+            Assert-UnlinkedPath $folderPath
+            $remaining = @(Get-ChildItem -LiteralPath $folderPath -Force |
+                Where-Object { -not $previewRemovals.Contains($_.FullName) })
+            if ($remaining.Count) { continue }
+            if ($Apply) {
+                # Non-recursive deletion fails safely if new content appears meanwhile.
+                [IO.Directory]::Delete($folderPath, $false)
+                Write-Host "Removed empty source folder: $folderPath"
+            }
+            else {
+                $previewRemovals.Add($folderPath) | Out-Null
+                Write-Host "Would remove empty source folder: $folderPath"
+            }
+        }
+        catch { Write-Warning "Source folder kept: $folderPath -- $($_.Exception.Message)" }
     }
 }
 finally {

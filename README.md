@@ -90,6 +90,10 @@ in the source and prompt again next run. Preview decisions are not saved.
 Year marker files such as `_year_2018.txt` are no longer read.
 Filesystem dates and ambiguous video timestamps are not used; timezone-qualified
 video creation dates retain their recorded local time.
+The exact ExifTool warning `Invalid EXIF text encoding for UserComment` is reported
+but does not block organizing: the comment is not used for naming. Other metadata
+warnings and read errors still block processing. Metadata is never repaired or
+rewritten.
 
 Normal runs display file details with blue labels for videos, default labels for
 images, yellow skip reasons, and red failure reasons. Use `-PassThru` to return
@@ -108,7 +112,12 @@ Existing destination files are never overwritten. The destination contains
 lock file preventing simultaneous apply runs. Keep these files. Repeat runs
 process only media remaining in the source and continue the numeric sequence.
 Unreadable media, unsupported files (including XMP sidecars and old year markers) and
-empty folders stay in place. Metadata is never modified.
+other remaining content stays in place. Metadata is never modified.
+Approved source subfolders are removed when completely empty after moving,
+deepest first. Preview reports which would become empty without deleting them.
+Hidden files and remaining subfolders prevent deletion; the source root and
+skipped/unapproved folders are always kept. Deletion is non-recursive and cleanup
+failures are reported without deleting remaining contents.
 An unreadable/locked source encountered during hashing is reported as failed and
 left untouched; processing continues with the next file. Journal errors still
 stop the run. A console-only final summary shows previewed, moved, skipped, failed,
