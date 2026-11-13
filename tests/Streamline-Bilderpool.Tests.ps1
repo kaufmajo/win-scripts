@@ -165,7 +165,7 @@ try {
     Assert-True (($preview | Where-Object Source -eq $videoManual).Destination -match
         '\\2017_f_videos\\video_\d+_2017__dir_f_videos__orig_manual\.mov$') 'video manual-year fallback'
     Assert-True (($preview | Where-Object Source -eq $videoAmbiguous).Destination -match
-        '\\unknown\\video_\d+_unknown__dir_g_video_ambiguous__orig_ambiguous\.mov$') 'unknown uses shared folder and retains description'
+        '\\unknown_g_video_ambiguous\\video_\d+_unknown__dir_g_video_ambiguous__orig_ambiguous\.mov$') 'unknown folder includes description'
     Assert-True (($preview | Where-Object Source -eq $dated).DateSource -eq
         'ExifIFD:DateTimeOriginal') 'manual year never replaces embedded date'
     foreach ($path in @($child, $ambiguous, $invalid, $broken, $skipped)) {
@@ -293,6 +293,35 @@ try {
     }
     $retryHash = @(Invoke-TestRun @('y') -Apply)
     Assert-True (@($retryHash | Where-Object Status -EQ 'Moved').Count -eq 1) 'retry previously unreadable file'
+
+    $source = Join-Path $root 'override-source'
+    $destination = Join-Path $root 'override-result'
+    $album = Join-Path $source 'Family scans'
+    $scan = New-TestImage $album 'scan.JPG'
+    $undatedScan = New-TestImage $album 'undated.JPG'
+    $protectedScan = New-TestImage $album 'protected.JPG'
+    Set-TestDates @($scan, $protectedScan)
+    [IO.File]::WriteAllText((Join-Path $album 'protected.xmp'), 'sidecar placeholder')
+    $originalHash = (Get-FileHash -LiteralPath $scan).Hash
+    $unknownRun = @(Invoke-TestRun @('o', 'u', 'y'))
+    foreach ($path in @($scan, $undatedScan)) {
+        $result = $unknownRun | Where-Object Source -EQ $path
+        Assert-True ($result.Status -eq 'Preview' -and $result.Destination -match
+            '\\unknown_family_scans\\image_\d+_unknown__dir_family_scans__orig_' -and
+            $result.DateSource -eq 'User: override unknown') 'override dated and undated scans to unknown'
+    }
+    Assert-True (($unknownRun | Where-Object Source -EQ $protectedScan).Status -eq 'Skipped') 'override respects companion protection'
+    $cancelRun = @(Invoke-TestRun @('o', '', 'y', 's'))
+    Assert-True (($cancelRun | Where-Object Source -EQ $scan).DateSource -eq
+        'ExifIFD:DateTimeOriginal') 'cancel retains embedded date'
+    Assert-True (($cancelRun | Where-Object Source -EQ $undatedScan).Status -eq 'Skipped') 'cancel leaves normal undated prompt active'
+    $yearRun = @(Invoke-TestRun @('o', 'y', '1950', 'y'))
+    Assert-True (($yearRun | Where-Object Source -EQ $scan).Destination -match
+        '\\1950_family_scans\\image_\d+_1950__dir_') 'year override uses no invented month or day'
+    $overrideApply = @(Invoke-TestRun @('o', 'u', 'y') -Apply)
+    $movedScan = $overrideApply | Where-Object Source -EQ $scan
+    Assert-True ($movedScan.Status -eq 'Moved' -and
+        (Get-FileHash -LiteralPath $movedScan.Destination).Hash -eq $originalHash) 'override moves without changing embedded metadata'
 
     $rejected = $false
     try {

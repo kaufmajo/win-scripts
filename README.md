@@ -47,6 +47,10 @@ Filesystem safety limits and journal filenames are internal, not user settings.
 
 For each source folder, accept or edit its suggested description, choose no
 description, skip (the default), or quit. Subfolders get their own prompt.
+Choose `[O] Override dates` to assign a year or `unknown` to ALL eligible media
+directly in that folder, including files with embedded dates (useful for scans).
+Review the updated destinations/sample, then accept. Canceling the override keeps
+current dates; blocked files remain untouched. Only naming changes, not metadata.
 Folder approval shows a sample filename with a provisional ID (and `unknown` as a
 placeholder if its year has not yet been chosen). Sidecars (`.xmp`, `.aae`, `.thm`,
 `.lrv`) stay in the source; media matching their basename or full filename
@@ -72,13 +76,15 @@ destination directories are also limited to 247 characters. If the computed name
 without that suffix still exceeds the limits, the file stays untouched with an
 explanation. Moving the collection under a longer root later may exceed path limits.
 
-Embedded capture dates take priority. After approving a folder, choose once for
+Embedded capture dates take priority unless you explicitly override them.
+After approving a folder, choose once for
 all its readable undated media: `[Y] Enter year`, `[U] Unknown folder`, or
 `[S] Skip until next run` (the default on Enter). Choose `Y` to enter a year
 (by default, 1800 through next year; configurable with `-MinimumYear` and
 `-MaximumYear`); Enter at the year prompt also skips. A supplied year appears
-alone in the filename, without an invented capture time. `unknown` uses a shared
-destination folder named `unknown` and the filename date section `unknown`,
+alone in the filename, without an invented capture time. `unknown` uses a
+destination folder named `unknown_<description>` (or `unknown` without a
+description) and the filename date section `unknown`,
 retaining any approved description and original-name sections. Skipped files stay
 in the source and prompt again next run. Preview decisions are not saved.
 Year marker files such as `_year_2018.txt` are no longer read.

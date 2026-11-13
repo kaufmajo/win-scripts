@@ -12,6 +12,7 @@
 
     For undated media, enter a fallback year, choose unknown, or skip until the
     next run. The answer applies only to undated media directly in that folder.
+    Override dates in the folder menu to ignore embedded dates for naming only.
     Ambiguous QuickTime timestamps and filesystem dates are not used.
 
     Unsupported files (including XMP sidecars) and empty source folders
@@ -139,7 +140,7 @@ function Get-DestinationFileName {
 
 function Get-DestinationFolder {
     param ([string]$Root, [string]$Year, [string]$Description)
-    $name = if ($Year -eq 'unknown' -or -not $Description) { $Year }
+    $name = if (-not $Description) { $Year }
         else { "${Year}_$Description" }
     Join-Path $Root $name
 }
@@ -238,14 +239,19 @@ function Read-MenuChoice {
 }
 
 function Read-FallbackYear {
-    param ([int]$Count)
+    param ([int]$Count, [switch]$Override)
     Write-Host
-    Write-Host 'Capture dates: "unknown"' -ForegroundColor Cyan
+    $heading = if ($Override) { 'Capture dates: override' } else { 'Capture dates: "unknown"' }
+    $skipLabel = if ($Override) { 'Cancel override (keep current dates)' } else { 'Skip until next run' }
+    $enterLabel = if ($Override) { 'cancel override' } else { 'skip until next run' }
+    Write-Host $heading -ForegroundColor Cyan
     Write-Host ('  Need year decision : {0,5}' -f $Count)
-    Write-Host '  Applies to readable undated files in this folder only.' -ForegroundColor DarkGray
+    $scope = if ($Override) { '  Applies to ALL eligible media directly in this folder. Metadata stays unchanged.' }
+        else { '  Applies to readable undated files in this folder only.' }
+    Write-Host $scope -ForegroundColor DarkGray
     Write-Host
     $choice = Read-MenuChoice ([ordered]@{
-        y = 'Enter year'; u = 'Unknown folder'; s = 'Skip until next run'
+        y = 'Enter year'; u = 'Unknown folder'; s = $skipLabel
     })
     if ($choice -eq 's') { return }
     if ($choice -eq 'u') {
@@ -253,7 +259,7 @@ function Read-FallbackYear {
     }
     Write-Host
     while ($true) {
-        $answer = (Read-Host "Year ($MinimumYear-$MaximumYear; Enter = skip until next run)").Trim()
+        $answer = (Read-Host "Year ($MinimumYear-$MaximumYear; Enter = $enterLabel)").Trim()
         if (-not $answer) { return }
         if ($answer -match '^\d{4}$' -and [int]$answer -ge $MinimumYear -and
             [int]$answer -le $MaximumYear) {
@@ -261,7 +267,7 @@ function Read-FallbackYear {
                 Year = $answer; Stamp = $answer; Source = 'User: year'
             }
         }
-        Write-Warning 'Enter a valid four-digit year, or press Enter to skip until next run.'
+        Write-Warning "Enter a valid four-digit year, or press Enter to $enterLabel."
     }
 }
 
@@ -452,9 +458,22 @@ try {
             }
             Write-Host
             $choice = Read-MenuChoice ([ordered]@{
-                y = 'Accept'; e = 'Edit description'; n = 'No description'; s = 'Skip'; q = 'Quit'
+                y = 'Accept'; e = 'Edit description'; n = 'No description'
+                o = 'Override dates'; s = 'Skip'; q = 'Quit'
             })
             if ($choice -eq 'e') { $description = ConvertTo-SafeName (Read-Host 'Description') }
+            if ($choice -eq 'o') {
+                $eligible = @($items | Where-Object { -not $_.Reason })
+                if ($eligible.Count) {
+                    $overrideDate = Read-FallbackYear $eligible.Count -Override
+                    if ($overrideDate) {
+                        $overrideDate.Source = "User: override $($overrideDate.Year)"
+                        foreach ($item in $eligible) { $item.Date = $overrideDate }
+                        $undated = @()
+                    }
+                }
+                else { Write-Warning 'No eligible media to override; blocked files remain untouched.' }
+            }
         }
         if ($choice -eq 'q') { break }
         if ($choice -eq 'n') { $description = '' }
