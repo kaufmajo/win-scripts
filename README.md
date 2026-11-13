@@ -29,114 +29,108 @@ In the paths below, `~` means your user profile directory, usually `C:\Users\<us
 
 ## Streamline-Bilderpool.ps1
 
-Reads metadata with ExifTool and proposes moves from `D:\__Master\Bilderpool`
-to `D:\__Master\Bilderpool_Streamlined`. Requires PowerShell 7 and ExifTool.
-Keep the `library` folder alongside the script for its shared console headers.
-The default ExifTool path is configured in the script's parameter block; override
-it with `-ExifToolPath` if needed.
+Organizes images and videos from `D:\__Master\Bilderpool` into
+`D:\__Master\Bilderpool_Streamlined`, using capture dates and approved folder
+descriptions. Files are **moved, not copied**; their contents and metadata are
+never changed.
 
-All user settings are grouped in the `USER SETTINGS` parameter block at the top:
-paths, maximum description length, accepted year range, and supported image/video
-extensions. Edit the defaults there or override them with command-line parameters.
-Filesystem safety limits and journal filenames are internal, not user settings.
+### Quick start
+
+Requires **PowerShell 7**, **ExifTool**, and the `library` folder alongside the
+script. Edit the `USER SETTINGS` block at the top for paths, description length,
+year range, and supported extensions, or override them on the command line.
+
+**Keep a backup before moving originals. Test a small copied sample first.**
 
 ```powershell
 .\Streamline-Bilderpool.ps1          # Preview only
 .\Streamline-Bilderpool.ps1 -Apply   # Move approved files
+
+.\Streamline-Bilderpool.ps1 -SourcePath C:\Temp\Pictures-Test -DestinationPath C:\Temp\Pictures-Result
 ```
 
-For each source folder, accept or edit its suggested description, choose no
-description, skip (the default), or quit. Subfolders get their own prompt.
-Choose `[O] Override dates` to assign a year or `unknown` to ALL eligible media
-directly in that folder, including files with embedded dates (useful for scans).
-Review the updated destinations/sample, then accept. Canceling the override keeps
-current dates; blocked files remain untouched. Only naming changes, not metadata.
-Folder approval shows a sample filename with a provisional ID (and `unknown` as a
-placeholder if its year has not yet been chosen). Sidecars (`.xmp`, `.aae`, `.thm`,
-`.lrv`) stay in the source; media matching their basename or full filename
-(for example `IMG_1234.xmp` or `IMG_1234.JPG.xmp`) is also skipped.
-Matching image/video basename groups (possibly Live Photos) generate an informational
-notice but are processed independently, each with its own ID and date decision.
-They may land in different folders; Live Photo pairing is not preserved.
-Sidecar protection still applies.
-Files are placed in flat folders such as `2023_urlaub_muenchen`, with lowercase
-names such as `image_000000123_2023-08-14_15-32-07__dir_urlaub_muenchen__orig_img_4321.jpg`.
-Videos use `video_` and share the same ID sequence. No description means a
-year-only folder and no description in the filename.
+Preview creates no files or folders and does not save your decisions.
+`-Apply` requires separate, non-nested source/destination folders on the
+**same local drive**. Existing destination files are never overwritten.
 
-`__dir_` marks the folder description; `__orig_` marks the original basename.
-Sanitized content contains no double underscores, so the sections can be removed
-unambiguously later while keeping the extension. Absent sections have no marker.
-Destination folder names remain unchanged (for example `2023_urlaub_muenchen`).
+### Folder and date decisions
 
-The sanitized original filename (without its extension) is appended before the
-extension. Files are skipped for manual review if the full name including `__orig_` would exceed 255 UTF-8
-bytes per filename (common Linux filesystem limit) or 259 characters for the full
-Windows path. These conservative Windows limits work without enabling long paths;
-destination directories are also limited to 247 characters. If the computed name
-exceeds these limits, the file stays untouched with an explanation. The original
-basename is never shortened or omitted to fit length limits. Shorten the source
-basename, chosen description, or destination root before retrying.
-Moving the collection under a longer root later may exceed path limits.
+Each source folder has its own approval menu, destination preview, and sample
+filename. IDs are provisional; an undated sample uses `unknown` as a placeholder.
+Decisions apply only to files directly in that folder; subfolders prompt separately.
 
-Embedded capture dates take priority unless you explicitly override them.
-After approving a folder, choose once for
-all its readable undated media: `[Y] Enter year`, `[U] Unknown folder`, or
-`[S] Skip until next run` (the default on Enter). Choose `Y` to enter a year
-(by default, 1800 through next year; configurable with `-MinimumYear` and
-`-MaximumYear`); Enter at the year prompt also skips. A supplied year appears
-alone in the filename, without an invented capture time. `unknown` uses a
-destination folder named `unknown_<description>` (or `unknown` without a
-description) and the filename date section `unknown`,
-retaining any approved description and original-name sections. Skipped files stay
-in the source and prompt again next run. Preview decisions are not saved.
-Year marker files such as `_year_2018.txt` are no longer read.
+| Choice | Effect |
+| --- | --- |
+| `Y` Accept | Process eligible files with the displayed description. |
+| `E` Edit description | Enter a new description, review it, then accept. |
+| `N` No description | Use year-only destination folders and omit the filename description. |
+| `O` Override dates | Assign a year or `unknown` to all eligible media, including dated files. Useful for scans; review, then accept. Cancel keeps current dates. |
+| `S` Skip / Enter | Leave the folder for a later run. |
+| `Q` Quit | Stop processing further folders. |
+
+Embedded capture dates are used unless overridden. For readable files without a
+reliable date, a second menu offers **year**, **unknown**, or **skip** (default).
+Enter at the year prompt also skips. The default accepted range is 1800 through
+next year (`-MinimumYear` / `-MaximumYear`).
+
+A manual year does not invent a month, day, or time. Choosing `unknown` uses
+`unknown_<description>` (or just `unknown` without a description).
 Filesystem dates and ambiguous video timestamps are not used; timezone-qualified
-video creation dates retain their recorded local time.
-ExifTool warnings are reported but do not generally block organizing. The script
-validates the media type and capture date it actually uses; unrelated warnings
-such as MakerNotes adjustments or UserComment encoding do not prevent moving.
-Warnings mentioning dates, times, creation, capture or GPS week/seconds cause
-embedded dates to be disregarded and a manual year/unknown/skip decision to be
-requested. This is a conservative text-based check, not a guarantee of date
-accuracy. Actual read errors and unsupported media still block processing.
-Metadata is never repaired or rewritten; image decoding is not validated.
+video dates retain their recorded local time.
 
-Normal runs display file details with blue labels for videos, default labels for
-images, yellow skip reasons, and red failure reasons. Use `-PassThru` to return
-structured result objects instead of displaying those details. Headers, prompts
-and summaries remain console output and are not included in CSV exports.
+### Folders and filenames
 
-Preview creates no files or folders. Export its results if desired:
+```text
+2023_urlaub_muenchen\
+    image_000000123_2023-08-14_15-32-07__dir_urlaub_muenchen__orig_img_4321.jpg
+```
+
+| Part | Meaning |
+| --- | --- |
+| `image_` / `video_` | Media type; both share one numeric ID sequence. |
+| Date section | Capture timestamp, manual year, or `unknown`. |
+| `__dir_...` | Approved folder description; omitted when empty. |
+| `__orig_...` | Sanitized original basename, followed by the lowercase extension. |
+
+Names are lowercase. Spaces, dots, and special characters become single
+underscores; parentheses are removed and accents simplified (`ä` → `ae`,
+`ö` → `oe`, `ü` → `ue`, `ß` → `ss`). Sanitized text contains no double
+underscores, keeping the section markers distinguishable for later removal.
+
+**Overlong names are skipped, not shortened:** the full original-name section
+must fit. Limits are 255 UTF-8 bytes per filename/directory component, 259
+characters per full Windows file path, and 247 characters per destination
+directory path. Shorten the original basename, description, or destination root
+before retrying. These conservative limits do not require Windows long-path
+support; relocating the collection under a longer root can exceed them.
+
+### Safety and special cases
+
+| Case | Behavior |
+| --- | --- |
+| Sidecars (`.xmp`, `.aae`, `.thm`, `.lrv`) | Stay in the source. Media matching their basename or full filename (for example `IMG_1234.JPG.xmp`) is skipped too. |
+| Matching image/video basenames | Notice only: files process independently with separate IDs and may land in different folders. **Live Photo pairing is not preserved.** |
+| Metadata warnings | Displayed; unrelated warnings do not block processing. Date-related warnings require a manual date decision. Detection is heuristic, not a guarantee of accuracy. |
+| Read errors / unsupported media | Files stay in place. Full image decoding is not validated. |
+| Hashing or move failure | Reported per file; processing continues. Journal errors stop the run. |
+| Empty source subfolders | Approved folders are removed deepest first after processing, including after Quit. Preview reports proposed removals. Hidden/remaining content prevents deletion; the source root and unapproved folders are kept. Deletion is non-recursive. |
+
+Keep `_streamline-journal.csv` and the lock file in the destination root.
+The journal records original/new paths and supports interrupted-run recovery;
+**it is not a backup**. The lock prevents concurrent apply runs. Reruns process
+remaining source files and continue numbering. The final summary shows totals
+and journal location, including after Quit.
+
+### CSV export and testing
+
+Use `-PassThru` to return structured objects instead of colored file details.
+Headers, prompts, and summaries remain console output, not CSV content:
 
 ```powershell
 .\Streamline-Bilderpool.ps1 -PassThru | Export-Csv C:\Temp\bilderpool-preview.csv
 ```
 
-`-Apply` requires separate, non-nested folders on the same local drive.
-Existing destination files are never overwritten. The destination contains
-`_streamline-journal.csv` for traceability and interrupted-run recovery, plus a
-lock file preventing simultaneous apply runs. Keep these files. Repeat runs
-process only media remaining in the source and continue the numeric sequence.
-Unreadable media, unsupported files (including XMP sidecars and old year markers) and
-other remaining content stays in place. Metadata is never modified.
-Approved source subfolders are removed when completely empty after moving,
-deepest first. Preview reports which would become empty without deleting them.
-Hidden files and remaining subfolders prevent deletion; the source root and
-skipped/unapproved folders are always kept. Deletion is non-recursive and cleanup
-failures are reported without deleting remaining contents.
-An unreadable/locked source encountered during hashing is reported as failed and
-left untouched; processing continues with the next file. Journal errors still
-stop the run. A console-only final summary shows previewed, moved, skipped, failed,
-and not-processed totals plus journal location, including when you choose Quit.
-
-**Keep a backup before moving originals.** Try a small copied sample first:
-
-```powershell
-.\Streamline-Bilderpool.ps1 -SourcePath C:\Temp\Pictures-Test -DestinationPath C:\Temp\Pictures-Result
-```
-
-The isolated synthetic-file checks do not access the picture collection:
+Run isolated checks with synthetic files; these do not access the picture collection:
 
 ```powershell
 .\tests\Streamline-Bilderpool.Tests.ps1 -ExifToolPath 'C:\Tools\exiftool.exe'
