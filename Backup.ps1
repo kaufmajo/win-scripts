@@ -178,6 +178,59 @@ function Get-DriveState {
     return 'NotReady'
 }
 
+function Invoke-MasterSlaveMirror {
+    param(
+        [string]$MasterLetter,
+        [string]$SlaveLetter,
+        [string]$MasterLabel,
+        [string]$SlaveLabel
+    )
+
+    if (-not $MasterLetter -or -not $SlaveLetter) { return $true }
+    if ($MasterLetter -eq $SlaveLetter) {
+        Write-Host "Master/slave mirror skipped: both roles refer to the same drive." -ForegroundColor Yellow
+        return $false
+    }
+
+    $mirrorSource = "${MasterLetter}:\__master"
+    $mirrorTarget = "${SlaveLetter}:\__slave"
+    Write-SectionHeader -Title "Optional master to slave mirror" -Detail "$mirrorSource -> $mirrorTarget"
+    Write-Host "Destination-only files will be deleted. This mirror has no history." -ForegroundColor Yellow
+    $answer = (Read-Host "Mirror now? [Y] Yes, [N] No (default)").Trim()
+    if ($answer -notin @('y', 'yes')) { return $true }
+
+    # Recheck after confirmation: removable drives may have changed since selection.
+    if ((Get-DriveState $MasterLetter $MasterLabel) -ne 'Ready' -or
+        (Get-DriveState $SlaveLetter $SlaveLabel) -ne 'Ready') {
+        Write-Host "Master/slave mirror cancelled: drive identity or availability changed." -ForegroundColor Red
+        return $false
+    }
+    if (-not (Test-Path -LiteralPath $mirrorSource -PathType Container)) {
+        Write-Host "Master/slave mirror cancelled: source folder not found: $mirrorSource" -ForegroundColor Red
+        return $false
+    }
+    foreach ($path in @($mirrorSource, $mirrorTarget)) {
+        if (Test-Path -LiteralPath $path) {
+            $item = Get-Item -LiteralPath $path -Force
+            if (-not $item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+                Write-Host "Master/slave mirror cancelled: not a normal folder: $path" -ForegroundColor Red
+                return $false
+            }
+        }
+    }
+
+    robocopy $mirrorSource $mirrorTarget /MIR /XJ /R:0 /W:0 /NDL /NS /NP /FP /NJS /NJH |
+        Write-RobocopyOutput -SourceRoot $mirrorSource -TargetRoot $mirrorTarget
+    if ($LASTEXITCODE -ge 8) {
+        Write-Host "Master/slave mirror failed with exit code $LASTEXITCODE" -ForegroundColor Red
+        return $false
+    }
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "No changed files found for master/slave mirror" -ForegroundColor DarkGray
+    }
+    return $true
+}
+
 # Returns where a configured path is copied to in $ConfigFolder, keeping the
 # full source path, like "rsync --relative":
 #   C:\Users\me\.gitconfig  ->  <ConfigFolder>\C\Users\me\.gitconfig
@@ -511,6 +564,7 @@ Write-Host
 #===============================================================
 
 $targets = [System.Collections.Generic.List[string]]::new()
+$availableDrives = @{}
 
 $driveConfigs = @(
     @{ Role = 'master'; Letter = $masterDriveLetter; Label = $masterDriveLabel },
@@ -533,6 +587,7 @@ foreach ($drive in $driveConfigs) {
         $roleName = $drive.Role.Substring(0, 1).ToUpper() + $drive.Role.Substring(1)
         Write-Host "$roleName is $target\"
         $targets.Add($target)
+        $availableDrives[$drive.Role] = $letter
     }
     else {
         Write-Host "No valid $($drive.Role) drive given, or drive is locked" -ForegroundColor Yellow
@@ -737,6 +792,13 @@ if ($WithLinux) {
 }
 
 #---------------------------------------------------------------
+
+if ($availableDrives.ContainsKey('master') -and $availableDrives.ContainsKey('slave')) {
+    if (-not (Invoke-MasterSlaveMirror -MasterLetter $availableDrives.master -SlaveLetter $availableDrives.slave `
+            -MasterLabel $masterDriveLabel -SlaveLabel $slaveDriveLabel)) {
+        $failed = $true
+    }
+}
 
 if ($failed) {
     Write-Host

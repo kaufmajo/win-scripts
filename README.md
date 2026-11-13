@@ -172,6 +172,13 @@ X:\<COMPUTERNAME>\<targetFolder>\<USERNAME>.history\    history: old versions of
 .\Backup.ps1 -ConfigFile '.\config\backup.xml' -SkipHistory
 ```
 
+At the end, when both master and slave drives have been selected and validated,
+an optional prompt offers to mirror `<master>:\__master` into `<slave>:\__slave`.
+Enter defaults to No. Confirming uses `robocopy /MIR`: destination-only content
+is deleted, with **no history for this additional mirror**. Drive labels and
+source existence are rechecked before running; junctions are excluded. Selected
+drive letters are used even if they differ from the configuration defaults.
+
 | Option | Effect |
 | --- | --- |
 | `-ConfigFile <path>` | Use another XML configuration file. |
