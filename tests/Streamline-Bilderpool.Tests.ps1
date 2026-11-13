@@ -122,13 +122,17 @@ try {
     $original = 'a' * 238
     $atLimit = Get-DestinationFileName 'C:\' 'image_1' '.jpg' ($original.Substring(0, 237))
     Assert-True ($atLimit.Length -eq 255) '255-byte filename is allowed'
-    Assert-True ((Get-DestinationFileName 'C:\' 'image_1' '.jpg' $original) -eq
-        'image_1.jpg') 'omit entire suffix above 255 bytes without truncation'
+    $rejected = $false
+    try { Get-DestinationFileName 'C:\' 'image_1' '.jpg' $original | Out-Null }
+    catch { $rejected = $_.Exception.Message.Contains('full __orig_ section') }
+    Assert-True $rejected 'reject filename above 255 bytes rather than omit original suffix'
     $folder = 'C:\' + ('d' * 210)
     $atLimit = Get-DestinationFileName $folder 'image_1' '.jpg' ('a' * 27)
     Assert-True ((Join-Path $folder $atLimit).Length -eq 259) '259-character path is allowed'
-    Assert-True ((Get-DestinationFileName $folder 'image_1' '.jpg' ('a' * 28)) -eq
-        'image_1.jpg') 'omit suffix exceeding full-path limit'
+    $rejected = $false
+    try { Get-DestinationFileName $folder 'image_1' '.jpg' ('a' * 28) | Out-Null }
+    catch { $rejected = $_.Exception.Message.Contains('full __orig_ section') }
+    Assert-True $rejected 'reject full path above limit rather than omit original suffix'
     $rejected = $false
     try { Get-DestinationFileName ('C:\' + ('d' * 243)) 'image_123456789' '.jpg' 'original' | Out-Null }
     catch { $rejected = $true }
@@ -285,11 +289,15 @@ try {
     $aae = Join-Path $source 'full-name.JPG.aae'
     [IO.File]::WriteAllText($xmp, 'sidecar placeholder')
     [IO.File]::WriteAllText($aae, 'sidecar placeholder')
-    $protected = @($paired, $pairedVideo, $withSidecar, $withFullNameSidecar, $xmp, $aae)
+    $protected = @($withSidecar, $withFullNameSidecar, $xmp, $aae)
     $protectedHashes = @{}
     foreach ($path in $protected) { $protectedHashes[$path] = (Get-FileHash -LiteralPath $path).Hash }
-    $protectedPreview = @(Invoke-TestRun @('y'))
-    $consoleResults = @(Invoke-TestRun @('y') -ConsoleOutput)
+    $protectedPreview = @(Invoke-TestRun @('y', 'y', '2018'))
+    foreach ($path in @($paired, $pairedVideo)) {
+        Assert-True (($protectedPreview | Where-Object Source -EQ $path).Status -eq
+            'Preview') 'matching image/video names do not block processing'
+    }
+    $consoleResults = @(Invoke-TestRun @('y', 'y', '2018') -ConsoleOutput)
     Assert-True ($consoleResults.Count -eq 0) 'console output emits no duplicate result objects'
     Assert-True ($lastFeedback.Contains('Source      : ') -and
         $lastFeedback.Contains('Reason      : ') -and
@@ -297,7 +305,7 @@ try {
     $exported = @($protectedPreview | ConvertTo-Csv)
     Assert-True ($exported.Count -eq $protectedPreview.Count + 1 -and
         $exported[0].Contains('"Reason"')) 'PassThru results remain CSV-compatible'
-    foreach ($path in @($paired, $pairedVideo, $withSidecar, $withFullNameSidecar)) {
+    foreach ($path in @($withSidecar, $withFullNameSidecar)) {
         $result = $protectedPreview | Where-Object Source -EQ $path
         Assert-True ($result.Status -eq 'Skipped' -and $result.Reason.Contains('review') -and
             -not $result.Destination) 'preview skips related media without assigning a destination'
@@ -307,14 +315,15 @@ try {
         if ($LiteralPath -eq $locked) { throw 'Simulated sharing violation.' }
         Microsoft.PowerShell.Utility\Get-FileHash -LiteralPath $LiteralPath -Algorithm $Algorithm
     }
-    try { $hashRun = @(Invoke-TestRun @('y') -Apply) }
+    try { $hashRun = @(Invoke-TestRun @('y', 'y', '2018') -Apply) }
     finally { Remove-Item -LiteralPath Function:\Get-FileHash }
-    Assert-True (@($hashRun | Where-Object Status -EQ 'Moved').Count -eq 1) 'continue after per-file hash failure'
+    Assert-True (@($hashRun | Where-Object Status -EQ 'Moved').Count -eq 3) 'continue after per-file hash failure'
     Assert-True (($hashRun | Where-Object Source -EQ $locked).Reason.Contains(
         'Cannot read/hash source file; left untouched')) 'explain hash failure'
     Assert-True (Test-Path -LiteralPath $locked) 'hash failure preserves source'
-    Assert-True ($lastWarnings.Contains('possibly Live Photos')) 'warn about matching image/video basenames'
-    Assert-True ($lastFeedback.Contains('moved: 1; skipped: 4; failed: 1; not processed: 0')) 'summary counts protected media and hash failure'
+    Assert-True ($lastFeedback.Contains('possibly Live Photos') -and
+        $lastFeedback.Contains('processed independently')) 'inform about matching image/video basenames'
+    Assert-True ($lastFeedback.Contains('moved: 3; skipped: 2; failed: 1; not processed: 0')) 'summary counts protected media and hash failure'
     foreach ($path in $protected) {
         Assert-True ((Get-FileHash -LiteralPath $path).Hash -eq $protectedHashes[$path]) 'related media and companions remain unchanged'
     }
@@ -349,6 +358,20 @@ try {
     $movedScan = $overrideApply | Where-Object Source -EQ $scan
     Assert-True ($movedScan.Status -eq 'Moved' -and
         (Get-FileHash -LiteralPath $movedScan.Destination).Hash -eq $originalHash) 'override moves without changing embedded metadata'
+
+    $source = Join-Path $root 'length-source'
+    $destination = Join-Path $root 'length-result'
+    $longFile = New-TestImage $source (('a' * 170) + '.JPG')
+    Set-TestDates @($longFile)
+    $longHash = (Get-FileHash -LiteralPath $longFile).Hash
+    foreach ($applyMode in @($false, $true)) {
+        $longRun = @(Invoke-TestRun @('y') -Apply:$applyMode)
+        Assert-True ($longRun.Count -eq 1 -and $longRun[0].Status -eq 'Skipped' -and
+            $longRun[0].Reason.Contains('full __orig_ section')) 'overlong original suffix produces actionable skip in preview and apply'
+        Assert-True ((Get-FileHash -LiteralPath $longFile).Hash -eq $longHash) 'overlong source remains untouched'
+        Assert-True (@(Get-ChildItem -LiteralPath $destination -File -Recurse -ErrorAction SilentlyContinue |
+            Where-Object Extension -EQ '.jpg').Count -eq 0) 'no shortened media destination created'
+    }
 
     $source = Join-Path $root 'cleanup-source'
     $destination = Join-Path $root 'cleanup-result'

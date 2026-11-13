@@ -6,8 +6,9 @@
     Preview is the default. Only -Apply moves files, on the same local drive.
     Each source folder is approved separately; subfolders get their own prompt.
     Metadata and media contents are never edited.
-    The sanitized original basename is appended unless it exceeds the 255-byte
-    filename or 259-character full-path limit. The extension is kept only once.
+    The sanitized original basename is appended. Files exceeding the 255-byte
+    filename or 259-character full-path limit are skipped for manual review.
+    The extension is kept only once.
     Filename sections are marked with __dir_ and __orig_ for later removal.
 
     For undated media, enter a fallback year, choose unknown, or skip until the
@@ -135,6 +136,7 @@ function Get-DestinationFileName {
             (Join-Path $Folder $candidate).Length -le 259) {
             return $candidate
         }
+        throw 'Destination including the full __orig_ section exceeds the 255-byte filename or 259-character full-path limit. File left untouched; shorten the original basename, description, or destination root manually and retry.'
     }
     $baseName
 }
@@ -446,12 +448,7 @@ try {
             @($_.Group | Where-Object { -not $_.IsVideo }).Count
         })
         if ($pairs.Count) {
-            Write-Warning "$($pairs.Count) matching image/video basename pair(s) detected (possibly Live Photos). All members will be skipped for later review."
-            foreach ($pair in $pairs) {
-                foreach ($item in $pair.Group) {
-                    $item.Reason = 'Matching image/video basename (possibly Live Photo); all members left untouched for review.'
-                }
-            }
+            Write-Host "$($pairs.Count) matching image/video basename pair(s) detected (possibly Live Photos). Files will be processed independently; dates may place them in different folders and Live Photo pairing is not preserved." -ForegroundColor Yellow
         }
         $blockedCount = @($items | Where-Object Reason).Count
         $undated = @($items | Where-Object { -not $_.Date -and -not $_.Reason })

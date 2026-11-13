@@ -55,9 +55,10 @@ Folder approval shows a sample filename with a provisional ID (and `unknown` as 
 placeholder if its year has not yet been chosen). Sidecars (`.xmp`, `.aae`, `.thm`,
 `.lrv`) stay in the source; media matching their basename or full filename
 (for example `IMG_1234.xmp` or `IMG_1234.JPG.xmp`) is also skipped.
-All members of matching image/video basename groups (possibly Live Photos) are
-skipped too. They remain untouched for later review, even if a year is supplied.
-Other media in the folder is processed normally.
+Matching image/video basename groups (possibly Live Photos) generate an informational
+notice but are processed independently, each with its own ID and date decision.
+They may land in different folders; Live Photo pairing is not preserved.
+Sidecar protection still applies.
 Files are placed in flat folders such as `2023_urlaub_muenchen`, with lowercase
 names such as `image_000000123_2023-08-14_15-32-07__dir_urlaub_muenchen__orig_img_4321.jpg`.
 Videos use `video_` and share the same ID sequence. No description means a
@@ -69,12 +70,14 @@ unambiguously later while keeping the extension. Absent sections have no marker.
 Destination folder names remain unchanged (for example `2023_urlaub_muenchen`).
 
 The sanitized original filename (without its extension) is appended before the
-extension. The entire original-name suffix, including `__orig_`, is omitted if it would exceed 255 UTF-8
+extension. Files are skipped for manual review if the full name including `__orig_` would exceed 255 UTF-8
 bytes per filename (common Linux filesystem limit) or 259 characters for the full
 Windows path. These conservative Windows limits work without enabling long paths;
 destination directories are also limited to 247 characters. If the computed name
-without that suffix still exceeds the limits, the file stays untouched with an
-explanation. Moving the collection under a longer root later may exceed path limits.
+exceeds these limits, the file stays untouched with an explanation. The original
+basename is never shortened or omitted to fit length limits. Shorten the source
+basename, chosen description, or destination root before retrying.
+Moving the collection under a longer root later may exceed path limits.
 
 Embedded capture dates take priority unless you explicitly override them.
 After approving a folder, choose once for
